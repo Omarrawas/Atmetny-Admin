@@ -1,111 +1,172 @@
-'use client';
 
-import type { User } from '@/types';
-import { useState, useEffect } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { getUsers, updateUserRole } from '@/lib/firestore'; // Assuming you have these functions
-import { useToast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ShieldAlert, UserCog, User as UserIcon } from 'lucide-react';
+// src/components/UserTable.tsx
+"use client";
 
-interface UserTableProps {
-  initialUsers: User[];
-}
+import React, { useEffect, useState } from "react";
+// Removed: import { db } from "@/config/firebaseClient";
+// import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore"; // Firestore imports removed
+import { getUsers, updateUser } from "@/lib/firestore"; // These will throw errors until implemented for Supabase
+import type { UserProfile } from "@/types";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Loader2, Users } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-export function UserTable({ initialUsers }: UserTableProps) {
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [loading, setLoading] = useState(false);
+const ROLES: UserProfile['role'][] = ['student', 'teacher', 'admin', 'user'];
+const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase.";
+
+export default function UserTable() {
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdatingRole, setIsUpdatingRole] = useState<string | null>(null); 
   const { toast } = useToast();
 
-  useEffect(() => {
-    setUsers(initialUsers);
-  }, [initialUsers]);
-
-  const handleRoleChange = async (userId: string, newRole: User['role']) => {
-    setLoading(true);
+  const fetchUsers = async () => {
+    setIsLoading(true);
     try {
-      await updateUserRole(userId, newRole);
-      setUsers(users.map(user => user.id === userId ? { ...user, role: newRole } : user));
-      toast({ title: 'تم تحديث الدور', description: `تم تغيير دور المستخدم بنجاح إلى ${newRole}.` });
-    } catch (error) {
-      console.error('Failed to update role:', error);
-      toast({ variant: 'destructive', title: 'فشل تحديث الدور', description: 'حدث خطأ أثناء تحديث دور المستخدم.' });
+      const data = await getUsers(); // This will use the (now placeholder) Supabase version
+      setUsers(data);
+    } catch (error: any) {
+      console.error("Error fetching users:", error);
+      if (error.message && error.message.includes(NOT_IMPLEMENTED_ERROR)) {
+         toast({ variant: "destructive", title: "Function Not Implemented", description: "User management requires Supabase backend implementation." });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error Fetching Users",
+          description: "Could not load user data. Please try again.",
+        });
+      }
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-  
-  const getInitials = (email?: string | null) => {
-    if (!email) return 'U';
-    return email.substring(0, 2).toUpperCase();
+
+  const changeRole = async (userId: string, newRole: UserProfile['role']) => {
+    if (!newRole) {
+        toast({
+            variant: "destructive",
+            title: "Invalid Role",
+            description: "Please select a valid role.",
+        });
+        return;
+    }
+    setIsUpdatingRole(userId);
+    try {
+      // Assuming updateUser from lib/firestore will be adapted for Supabase
+      await updateUser(userId, { role: newRole }); 
+      toast({
+        title: "Role Updated",
+        description: `User's role successfully changed to ${newRole}.`,
+      });
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId ? { ...user, role: newRole } : user // Use 'id' for Supabase
+        )
+      );
+    } catch (error: any) {
+      console.error("Error updating role:", error);
+      if (error.message && error.message.includes(NOT_IMPLEMENTED_ERROR)) {
+         toast({ variant: "destructive", title: "Function Not Implemented", description: "Updating user roles requires Supabase backend implementation." });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error Updating Role",
+          description: "Could not update user role. Please try again.",
+        });
+      }
+    } finally {
+      setIsUpdatingRole(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  if (isLoading && users.length === 0) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Loading users...</p>
+      </div>
+    );
   }
-
-  const roleIcons: Record<User['role'], React.ReactElement> = {
-    admin: <ShieldAlert className="h-5 w-5 text-red-500 mr-2" />,
-    teacher: <UserCog className="h-5 w-5 text-blue-500 mr-2" />,
-    student: <UserIcon className="h-5 w-5 text-green-500 mr-2" />,
-  };
-
-  const roleTranslations: Record<User['role'], string> = {
-    admin: 'مدير',
-    teacher: 'مدرس',
-    student: 'طالب',
-  };
-
-
+  
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>المستخدم</TableHead>
-            <TableHead>البريد الإلكتروني</TableHead>
-            <TableHead>الدور الحالي</TableHead>
-            <TableHead>تغيير الدور إلى</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.photoURL || `https://placehold.co/36x36.png`} alt={user.displayName || user.email || 'User'} data-ai-hint="profile avatar" />
-                    <AvatarFallback>{getInitials(user.email)}</AvatarFallback>
-                  </Avatar>
-                  <div className="font-medium">{user.displayName || user.email?.split('@')[0] || 'مستخدم غير معروف'}</div>
-                </div>
-              </TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>
-                <div className="flex items-center">
-                  {roleIcons[user.role]}
-                  {roleTranslations[user.role]}
-                </div>
-              </TableCell>
-              <TableCell>
-                <Select
-                  defaultValue={user.role}
-                  onValueChange={(newRole) => handleRoleChange(user.id, newRole as User['role'])}
-                  disabled={loading}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="اختر دورًا" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">{roleTranslations.admin}</SelectItem>
-                    <SelectItem value="teacher">{roleTranslations.teacher}</SelectItem>
-                    <SelectItem value="student">{roleTranslations.student}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {users.length === 0 && <p className="p-4 text-center text-muted-foreground">لا يوجد مستخدمون لعرضهم.</p>}
-    </div>
+    <Card className="shadow-lg">
+      <CardHeader>
+        <div className="flex items-center space-x-3 mb-2">
+            <Users className="h-8 w-8 text-primary" />
+            <CardTitle className="text-3xl font-bold tracking-tight">User Management</CardTitle>
+        </div>
+        <CardDescription className="text-lg text-muted-foreground">
+          View and manage user roles within the application. (Backend logic needs Supabase update)
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {users.length === 0 && !isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No users found or data fetching is not yet implemented for Supabase.
+          </div>
+        ) : (
+        <div className="overflow-x-auto mt-4 border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-semibold">Email</TableHead>
+                <TableHead className="font-semibold">Current Role</TableHead>
+                <TableHead className="font-semibold text-right">Change Role</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map(user => (
+                <TableRow key={user.id}> {/* Use 'id' for Supabase */}
+                  <TableCell className="font-medium">{user.email || "N/A"}</TableCell>
+                  <TableCell className="capitalize">{user.role || "Not set"}</TableCell>
+                  <TableCell className="text-right">
+                    <Select
+                      value={user.role}
+                      onValueChange={(value) => changeRole(user.id, value as UserProfile['role'])} // Use 'id'
+                      disabled={isUpdatingRole === user.id} // Use 'id'
+                    >
+                      <SelectTrigger className="w-[180px] h-9">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map(roleValue => (
+                          <SelectItem key={roleValue} value={roleValue || ''} className="capitalize">
+                            {isUpdatingRole === user.id && user.role === roleValue ? ( // Use 'id'
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ): null}
+                            {roleValue ? roleValue.charAt(0).toUpperCase() + roleValue.slice(1) : "Select Role"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

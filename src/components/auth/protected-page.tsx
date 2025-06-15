@@ -1,37 +1,35 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+// src/components/auth/protected-page.tsx
+"use client";
 import { useAuth } from '@/hooks/use-auth';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
+import React, { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
-export function ProtectedPage({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, loading } = useAuth();
+export default function ProtectedPage({ children }: { children: React.ReactNode }) {
+  const { user, isAdmin, loading, session } = useAuth(); // session might be useful for Supabase
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      if (!user) {
+      if (!user) { // Or !session for Supabase if user object might be delayed
+        console.log("[ProtectedPage] No user/session, redirecting to login.");
         router.replace('/login');
       } else if (!isAdmin) {
-        // If user is logged in but not an admin, redirect to a 'not authorized' page or home
-        // For this admin panel, we'll redirect to login as if they aren't supposed to be here.
-        console.warn('User is not an admin. Redirecting to login.');
-        router.replace('/login'); 
+        console.error("[ProtectedPage] Access denied: User is not an admin. Redirecting to login with error.");
+        router.replace('/login?error=unauthorized');
+      } else {
+        console.log("[ProtectedPage] User is authenticated and admin. Access granted.");
       }
+    } else {
+      console.log("[ProtectedPage] Auth state is loading...");
     }
-  }, [user, isAdmin, loading, router]);
+  }, [user, isAdmin, loading, session, router]);
 
   if (loading || !user || !isAdmin) {
-    // Show a loading state or a simple loader
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="space-y-4 p-4">
-          <Skeleton className="h-12 w-12 rounded-full" />
-          <Skeleton className="h-4 w-[250px]" />
-          <Skeleton className="h-4 w-[200px]" />
-          <p className="text-muted-foreground">جاري التحقق من صلاحيات الدخول...</p>
-        </div>
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <p className="ml-4 text-lg text-foreground">Verifying access...</p>
       </div>
     );
   }

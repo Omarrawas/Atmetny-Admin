@@ -1,6 +1,9 @@
-import { AppSidebar } from '@/components/layout/app-sidebar';
-import { AppHeader } from '@/components/layout/app-header';
-import { ProtectedPage } from '@/components/auth/protected-page';
+// src/app/dashboard/layout.tsx
+import React from 'react';
+import ProtectedPage from '@/components/auth/protected-page';
+import AppHeader from '@/components/layout/app-header';
+import AppSidebar from '@/components/layout/app-sidebar';
+import { SidebarProvider } from '@/components/ui/sidebar'; // Ensure SidebarProvider wraps sidebar and content
 
 export default function DashboardLayout({
   children,
@@ -9,15 +12,19 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedPage>
-      <div className="flex h-screen bg-background">
-        <AppSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <AppHeader />
-          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-4 md:p-6 lg:p-8">
-            {children}
-          </main>
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex h-screen bg-background">
+          <AppSidebar />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <AppHeader />
+            <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
+              <div className="container mx-auto max-w-7xl">
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
+      </SidebarProvider>
     </ProtectedPage>
   );
 }

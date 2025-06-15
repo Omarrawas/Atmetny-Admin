@@ -1,147 +1,195 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  setDoc,
-  Timestamp,
-  query,
-  where,
-  orderBy,
-  limit as firestoreLimit,
-  startAfter,
-  getCountFromServer,
-  WriteBatch,
-  writeBatch,
-} from 'firebase/firestore';
-import { db } from '@/config/firebaseClient';
-import type { User, Subject, Question, Exam, Tag } from '@/types';
+// src/lib/firestore.ts
+// IMPORTANT: All functions in this file need to be reimplemented to use Supabase.
+// Only getSubjects and getTags have a skeletal implementation for demonstration.
+// ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
-// Generic Firestore utility functions
-const createDocument = async <T extends { createdAt: Timestamp, updatedAt: Timestamp }>(collectionPath: string, data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
-  const docRef = await addDoc(collection(db, collectionPath), {
-    ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  return docRef.id;
-};
+import { supabase } from '@/lib/supabaseClient';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement } from '@/types';
 
-const createDocumentWithId = async <T extends { createdAt: Timestamp, updatedAt: Timestamp }>(collectionPath: string, id: string, data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
-  await setDoc(doc(db, collectionPath, id), {
-    ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-};
+const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
 
-
-const getDocument = async <T>(collectionPath: string, id: string): Promise<T | null> => {
-  const docRef = doc(db, collectionPath, id);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as T;
-  }
-  return null;
-};
-
-const getDocuments = async <T>(collectionPath: string, q?: any): Promise<T[]> => { // q can be Query
-  const queryToExecute = q || collection(db, collectionPath);
-  const querySnapshot = await getDocs(queryToExecute);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-};
-
-const updateDocument = async <T>(collectionPath: string, id: string, data: Partial<T>): Promise<void> => {
-  const docRef = doc(db, collectionPath, id);
-  await updateDoc(docRef, { ...data, updatedAt: Timestamp.now() });
-};
-
-const deleteDocument = async (collectionPath: string, id: string): Promise<void> => {
-  const docRef = doc(db, collectionPath, id);
-  await deleteDoc(docRef);
-};
-
-// User specific functions
-export const getUser = (id: string) => getDocument<User>('users', id);
-export const getUsers = (queryParams?: { page?: number, perPage?: number }) => {
-    let q = query(collection(db, 'users'), orderBy('email'));
-    // Add pagination if needed, e.g., using limit and startAfter
-    return getDocuments<User>('users', q);
-};
-export const updateUserRole = (id: string, role: User['role']) => updateDocument<User>('users', id, { role });
-export const getTotalUsersCount = async () => {
-    const coll = collection(db, "users");
-    const snapshot = await getCountFromServer(coll);
-    return snapshot.data().count;
-}
-
-
-// Subject specific functions
-export const createSubject = (data: Omit<Subject, 'id' | 'createdAt' | 'updatedAt'>) => createDocument<Subject>('subjects', data);
-export const getSubject = (id: string) => getDocument<Subject>('subjects', id);
-export const getSubjects = (queryParams?: { page?: number, perPage?: number }) => {
-    let q = query(collection(db, 'subjects'), orderBy('name'));
-    return getDocuments<Subject>('subjects', q);
-};
-export const updateSubject = (id: string, data: Partial<Omit<Subject, 'id' | 'createdAt' | 'updatedAt'>>) => updateDocument<Subject>('subjects', id, data);
-export const deleteSubject = (id: string) => deleteDocument('subjects', id);
-export const getTotalSubjectsCount = async () => {
-    const coll = collection(db, "subjects");
-    const snapshot = await getCountFromServer(coll);
-    return snapshot.data().count;
-}
-
-
-// Question specific functions
-export const createQuestion = (data: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => createDocument<Question>('questions', data);
-export const getQuestion = (id: string) => getDocument<Question>('questions', id);
-export const getQuestions = (queryParams?: { subjectId?: string, page?: number, perPage?: number }) => {
-    let q = query(collection(db, 'questions'), orderBy('createdAt', 'desc'));
-    if (queryParams?.subjectId) {
-        q = query(q, where('subjectId', '==', queryParams.subjectId));
+// --- Helper for Timestamps (if needed, Supabase usually returns ISO strings) ---
+export const convertTimestampsToDates = (data: any[]): any[] => {
+  return data.map(item => {
+    const newItem = { ...item };
+    for (const key in newItem) {
+      if (newItem[key] instanceof Date) {
+        newItem[key] = newItem[key].toISOString();
+      } else if (Array.isArray(newItem[key])) {
+        newItem[key] = convertTimestampsToDates(newItem[key]);
+      }
     }
-    return getDocuments<Question>('questions', q);
+    return newItem;
+  });
 };
-export const updateQuestion = (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>) => updateDocument<Question>('questions', id, data);
-export const deleteQuestion = (id: string) => deleteDocument('questions', id);
-export const getTotalQuestionsCount = async () => {
-    const coll = collection(db, "questions");
-    const snapshot = await getCountFromServer(coll);
-    return snapshot.data().count;
-}
-export const getQuestionsByIds = async (questionIds: string[]): Promise<Question[]> => {
-  if (!questionIds || questionIds.length === 0) return [];
-  // Firestore 'in' query supports up to 30 equality clauses. If more, split into multiple queries.
-  // For simplicity, this example assumes questionIds.length <= 30.
-  const q = query(collection(db, 'questions'), where('__name__', 'in', questionIds));
-  return getDocuments<Question>('questions', q);
-}
 
 
-// Exam specific functions
-export const createExam = (data: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>) => createDocument<Exam>('exams', data);
-export const getExam = (id: string) => getDocument<Exam>('exams', id);
-export const getExams = (queryParams?: { page?: number, perPage?: number }) => {
-    let q = query(collection(db, 'exams'), orderBy('title'));
-    return getDocuments<Exam>('exams', q);
+// --- Subjects ---
+export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+  const { data: newSubject, error } = await supabase.from('subjects').insert(data).select().single();
+  if (error) throw error; 
+  return newSubject.id;
 };
-export const updateExam = (id: string, data: Partial<Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>>) => updateDocument<Exam>('exams', id, data);
-export const deleteExam = (id: string) => deleteDocument('exams', id);
-export const getTotalExamsCount = async () => {
-    const coll = collection(db, "exams");
-    const snapshot = await getCountFromServer(coll);
-    return snapshot.data().count;
-}
 
-// Tag specific functions
-export const createTag = (data: Omit<Tag, 'id'>) => addDoc(collection(db, 'tags'), data).then(ref => ref.id);
-export const getTags = () => getDocuments<Tag>('tags', query(collection(db, 'tags'), orderBy('name')));
-export const getTag = (id: string) => getDocument<Tag>('tags', id);
-export const updateTag = (id: string, data: Partial<Omit<Tag, 'id'>>) => updateDocument<Tag>('tags', id, data);
-export const deleteTag = (id: string) => deleteDocument('tags', id);
+export const getSubjects = async (): Promise<Subject[]> => {
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .order('order', { ascending: true, nullsFirst: false })
+    .order('name', { ascending: true });
 
-export const getFirestoreDB = () => db;
-export const getNewBatch = (): WriteBatch => writeBatch(db);
+  if (error) {
+    console.error("Error fetching subjects from Supabase (in firestore.ts):", error);
+    throw error; 
+  }
+  return (data as Subject[]) || [];
+};
+
+export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+  const { error } = await supabase.from('subjects').update(data).eq('id', id);
+  if (error) throw error;
+};
+export const deleteSubject = async (subjectId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubject"); };
+export const getSubjectById = async (id: string): Promise<Subject | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectById"); };
+export const getSubjectsWithDetails = async (): Promise<Subject[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectsWithDetails"); };
+
+// --- Questions ---
+export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addQuestion"); };
+export const getQuestions = async (): Promise<Question[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getQuestions"); };
+export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateQuestion"); };
+export const deleteQuestion = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteQuestion"); };
+export const getQuestionById = async (id: string): Promise<Question | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getQuestionById"); };
+export const importQuestionsBatch = async (questions: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": importQuestionsBatch"); };
+
+// --- Exams ---
+export const addExam = async (data: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addExam"); };
+export const getExams = async (): Promise<Exam[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExams"); };
+export const updateExam = async (id: string, data: Partial<Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateExam"); };
+export const deleteExam = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteExam"); };
+export const getExamById = async (id: string): Promise<Exam | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExamById"); };
+
+// --- News Articles ---
+export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addNewsArticle"); };
+export const getNewsArticles = async (): Promise<NewsArticle[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getNewsArticles"); };
+export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArticle, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateNewsArticle"); };
+export const deleteNewsArticle = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteNewsArticle"); };
+export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getNewsArticleById"); };
+
+// --- Activation Codes (QR Codes) --- formerly Access Codes
+export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+  // Example: const { data: newCode, error } = await supabase.from('activation_codes').insert(data).select().single();
+  // if (error) throw error; return newCode.id;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": addAccessCode (now addActivationCode for table 'activation_codes')");
+};
+export const getAccessCodes = async (): Promise<AccessCode[]> => {
+  // Example: const { data, error } = await supabase.from('activation_codes').select('*');
+  // if (error) throw error; return data as AccessCode[];
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": getAccessCodes (now getActivationCodes for table 'activation_codes')");
+};
+export const updateAccessCode = async (id: string, data: Partial<Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+  // Example: const { error } = await supabase.from('activation_codes').update(data).eq('id', id);
+  // if (error) throw error;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAccessCode (now updateActivationCode for table 'activation_codes')");
+};
+export const deleteAccessCode = async (id: string): Promise<void> => {
+  // Example: const { error } = await supabase.from('activation_codes').delete().eq('id', id);
+  // if (error) throw error;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteAccessCode (now deleteActivationCode for table 'activation_codes')");
+};
+export const getAccessCodeById = async (id: string): Promise<AccessCode | null> => {
+  // Example: const { data, error } = await supabase.from('activation_codes').select('*').eq('id', id).single();
+  // if (error && error.code !== 'PGRST116') throw error; return data as AccessCode | null;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": getAccessCodeById (now getActivationCodeById for table 'activation_codes')");
+};
+
+// --- Subject Sections ---
+export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectSection"); };
+export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectSections"); };
+export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
+export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubjectSection"); };
+
+// --- Lessons ---
+export const addLesson = async (subjectId: string, sectionId: string, data: Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addLesson"); };
+export const getLessonsInSection = async (subjectId: string, sectionId: string): Promise<Lesson[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonsInSection"); };
+export const getLessonById = async (subjectId: string, sectionId: string, lessonId: string): Promise<Lesson | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonById"); };
+export const updateLesson = async (subjectId: string, sectionId: string, lessonId: string, data: Partial<Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateLesson"); };
+export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
+
+// --- Users (Profiles) ---
+export const getUsers = async (): Promise<UserProfile[]> => {
+  // Example: const { data, error } = await supabase.from('profiles').select('*');
+  // if (error) throw error; return data as UserProfile[];
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": getUsers");
+};
+export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
+  // Example: const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
+  // if (error && error.code !== 'PGRST116') throw error; 
+  // return data as UserProfile | null;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": getUserByEmail");
+};
+export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+  // Example: const { error } = await supabase.from('profiles').update(data).eq('id', id);
+  // if (error) throw error;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": updateUser");
+};
+
+export const getTeachers = async (): Promise<UserProfile[]> => {
+  // Example: const { data, error } = await supabase.from('profiles').select('*').eq('role', 'teacher');
+  // if (error) throw error; return data as UserProfile[];
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": getTeachers");
+};
+export const updateTeacherSubjects = async (teacherId: string, subjectIds: string[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateTeacherSubjects"); };
+
+// --- Questions for Lesson ---
+export const getQuestionsForLesson = async (lessonId: string): Promise<Question[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getQuestionsForLesson"); };
+export const unlinkQuestionFromLesson = async (questionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": unlinkQuestionFromLesson"); };
+export const getSubjectNameById = async (subjectId: string): Promise<string | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectNameById"); };
+
+// --- Tags ---
+export const addTag = async (data: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const { data: newTag, error } = await supabase.from('tags').insert(data).select().single();
+  if (error) throw error;
+  return newTag.id;
+};
+export const getTags = async (): Promise<Tag[]> => {
+  const { data, error } = await supabase
+    .from('tags')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error("Error fetching tags from Supabase:", error);
+    throw error;
+  }
+  return (data as Tag[]) || [];
+};
+export const updateTag = async (id: string, data: Partial<Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateTag"); };
+export const deleteTag = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteTag"); };
+
+// --- Exam Attempts ---
+export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExamAttempts"); };
+
+// --- App Settings ---
+export const getAppSettings = async (): Promise<AppSettings | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAppSettings"); };
+export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAppSettings"); };
+
+// --- Exam Titles (Helper) ---
+export const getExamTitleById = async (examId: string): Promise<string | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExamTitleById"); };
+
+// --- Announcements ---
+export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addAnnouncement"); };
+export const getAnnouncements = async (): Promise<Announcement[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAnnouncements"); };
+export const updateAnnouncement = async (id: string, data: Partial<Omit<Announcement, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAnnouncement"); };
+export const deleteAnnouncement = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteAnnouncement"); };
+export const getAnnouncementById = async (id: string): Promise<Announcement | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAnnouncementById"); };
+
+// --- Batch Imports ---
+export const addExamsBatch = async (exams: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addExamsBatch"); };
+export const addNewsArticlesBatch = async (articles: Omit<NewsArticle, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addNewsArticlesBatch"); };
+export const addAccessCodesBatch = async (codes: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> => {
+  // Example: const { error } = await supabase.from('activation_codes').insert(codes);
+  // if (error) throw error;
+  throw new Error(NOT_IMPLEMENTED_ERROR + ": addAccessCodesBatch (now for table 'activation_codes')");
+};
+export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addUsersBatch"); };
+export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'createdAt' | 'updatedAt' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };

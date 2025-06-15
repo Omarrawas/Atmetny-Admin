@@ -1,8 +1,10 @@
+// src/ai/flows/arabic-question-sanity-check.ts
 'use server';
+
 /**
- * @fileOverview AI flow for checking the grammatical correctness of Arabic questions.
+ * @fileOverview Flow to check the sanity of Arabic questions using GenAI.
  *
- * - arabicQuestionSanityCheck - A function that checks the sanity of an Arabic question using AI.
+ * - arabicQuestionSanityCheck - A function that checks the sanity of an Arabic question.
  * - ArabicQuestionSanityCheckInput - The input type for the arabicQuestionSanityCheck function.
  * - ArabicQuestionSanityCheckOutput - The return type for the arabicQuestionSanityCheck function.
  */
@@ -11,20 +13,18 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const ArabicQuestionSanityCheckInputSchema = z.object({
-  question: z.string().describe('The Arabic question to check for grammatical correctness.'),
+  question: z.string().describe('The Arabic question to check.'),
 });
+
 export type ArabicQuestionSanityCheckInput = z.infer<
   typeof ArabicQuestionSanityCheckInputSchema
 >;
 
 const ArabicQuestionSanityCheckOutputSchema = z.object({
-  isGrammaticallyCorrect: z
-    .boolean()
-    .describe('Whether the question is grammatically correct.'),
-  suggestedCorrections: z
-    .string()
-    .describe('Suggested corrections for the question, if any.'),
+  isSane: z.boolean().describe('Whether the question is grammatically correct and uses appropriate vocabulary.'),
+  explanation: z.string().describe('Explanation of why the question is sane or insane.'),
 });
+
 export type ArabicQuestionSanityCheckOutput = z.infer<
   typeof ArabicQuestionSanityCheckOutputSchema
 >;
@@ -39,13 +39,13 @@ const arabicQuestionSanityCheckPrompt = ai.definePrompt({
   name: 'arabicQuestionSanityCheckPrompt',
   input: {schema: ArabicQuestionSanityCheckInputSchema},
   output: {schema: ArabicQuestionSanityCheckOutputSchema},
-  prompt: `You are an expert in Arabic grammar and syntax. Your task is to check the grammatical correctness of Arabic questions and suggest corrections if needed.
+  prompt: `You are an expert Arabic language teacher. Your task is to check if a given Arabic question is grammatically correct and uses appropriate vocabulary for educational purposes.
 
-Question: {{{question}}}
-
-Respond in JSON format, indicating whether the question is grammatically correct (isGrammaticallyCorrect: true/false) and providing suggested corrections (suggestedCorrections: "...") if it is not.
-`,}
-);
+  Question: {{{question}}}
+  
+  Determine if the question is sane (grammatically correct and uses appropriate vocabulary). Return a boolean value for isSane and provide a brief explanation.
+  `,
+});
 
 const arabicQuestionSanityCheckFlow = ai.defineFlow(
   {

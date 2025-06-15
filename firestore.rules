@@ -1,0 +1,138 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if the user is an admin
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Admins can read/write any user profile
+      allow read, write: if isAdmin();
+      // Users can read their own profile
+      allow get: if request.auth != null && request.auth.uid == userId;
+      // Users can update specific fields of their own profile if they are not an admin
+      // (admins use the rule above for full write access)
+      allow update: if request.auth != null && request.auth.uid == userId && !isAdmin() &&
+                       request.resource.data.keys().hasOnly(['displayName', 'updatedAt']); // Allow only displayName update for non-admins
+      // Allow user creation if user is authenticated (usually for first-time profile setup)
+      // This rule is a bit open; ideally, profile creation is handled by a server function or more specific client logic.
+      // For now, assuming client handles this and only sets basic info.
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // --- Subjects Collection ---
+    match /subjects/{subjectId} {
+      allow read: if request.auth != null; // All authenticated users can read subjects
+      allow create, update, delete: if isAdmin();
+
+      // --- Sections Subcollection ---
+      match /sections/{sectionId} {
+        allow read: if request.auth != null; // All authenticated users can read sections
+        allow create, update, delete: if isAdmin();
+
+        // --- Lessons Subcollection ---
+        match /lessons/{lessonId} {
+          allow read: if request.auth != null; // All authenticated users can read lessons
+          allow create, update, delete: if isAdmin();
+        }
+      }
+    }
+
+    // --- Questions Collection ---
+    match /questions/{questionId} {
+      allow read: if request.auth != null; // All authenticated users can read questions
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Exams Collection ---
+    match /exams/{examId} {
+      // Admins can manage exams
+      allow create, update, delete: if isAdmin();
+      // Authenticated users can read published exams
+      allow get: if request.auth != null && resource.data.published == true;
+      allow list: if request.auth != null; // Allow listing, client queries for published
+    }
+
+    // --- News Collection ---
+    match /news/{newsId} {
+      allow read: if request.auth != null; // All authenticated users can read news
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // --- Tags Collection ---
+    match /tags/{tagId} {
+      allow read: if request.auth != null; // All authenticated users can read tags
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Activation Codes Collection ---
+    match /activationCodes/{codeId} {
+      // المسؤولون (Admins): لديهم صلاحية القراءة والكتابة الكاملة (إنشاء، تحديث، حذف)
+      allow read, write: if request.auth != null &&
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+
+      // المستخدمون المصادق عليهم (الطلاب):
+      // 1. يمكنهم قراءة (get) رمز تفعيل محدد إذا كان نشطًا (isActive == true) وغير مستخدم (isUsed == false).
+      allow get: if request.auth != null &&
+                    resource.data.isActive == true &&
+                    resource.data.isUsed == false;
+
+      // 2. يمكنهم جلب قائمة (list) بالرموز. تطبيق الطالب يجب أن يقوم بالاستعلام عن الرمز المحدد.
+      allow list: if request.auth != null;
+
+      // 3. يمكنهم تحديث (update) رمز معين فقط لتمييزه بأنه "مستخدم" من قبلهم، وذلك تحت شروط صارمة:
+      allow update: if request.auth != null &&
+                       resource.data.isActive == true &&
+                       resource.data.isUsed == false &&
+                       request.resource.data.isUsed == true &&
+                       request.resource.data.usedAt == request.time &&
+                       request.resource.data.usedByUserId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedAt', 'usedByUserId']);
+    }
+
+    // --- Exam Attempts Collection ---
+    match /examAttempts/{attemptId} {
+      // Students can create their own exam attempts
+      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
+      // Students can read their own attempts
+      allow get: if request.auth != null && resource.data.studentId == request.auth.uid;
+      // Admins can read any exam attempt (for analytics, etc.)
+      allow read: if isAdmin(); // Extends 'get' and 'list' for admins
+      // No updates or deletes allowed for attempts by students to maintain integrity
+      // Admins could potentially delete if needed, but not explicitly allowed here for now to keep it simple
+      allow update, delete: if false; // Or specifically if isAdmin() for admin deletion
+    }
+
+    // --- App Configuration Collection ---
+    match /appConfiguration/{configId} {
+        // Allow admins to read and write any configuration document
+        allow read, write: if isAdmin();
+        // Allow authenticated users to read the 'globalSettings' document
+        allow get: if request.auth != null && configId == 'globalSettings';
+    }
+
+    // Rules for Announcements
+    match /announcements/{announcementId} {
+      // Admins can create, update, and delete any announcement.
+      allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Authenticated users (including admins, students, teachers) can read active announcements.
+      allow get: if request.auth != null && resource.data.isActive == true;
+
+      // Authenticated users can list announcements.
+      // Client-side filtering or specific queries should be used to show only active ones to non-admins.
+      allow list: if request.auth != null;
+    }
+
+  }
+}

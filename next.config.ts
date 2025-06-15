@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -16,6 +17,18 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      { // Added for Supabase Storage
+        protocol: 'https',
+        hostname: 'wlinjhdynghwfzoegvdi.supabase.co', // Your Supabase project URL hostname
+        port: '',
+        pathname: '/storage/v1/object/public/**', // Adjust path if your buckets are structured differently or private
+      },
+      { // Added for th.bing.com
+        protocol: 'https',
+        hostname: 'th.bing.com',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
 };

@@ -1,90 +1,93 @@
-'use client';
-
+// src/components/layout/app-sidebar.tsx
+"use client";
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  BookCopy,
-  HelpCircle,
-  ScrollText,
-  Users,
-  Settings,
-  LogOut,
-  ClipboardList,
-  BarChart3,
-  Megaphone,
-  QrCode,
-  UploadCloud,
-  DownloadCloud,
-  GraduationCap
-} from 'lucide-react';
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/hooks/use-auth';
-import { auth } from '@/config/firebaseClient';
-import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
-  { href: '/dashboard/subjects', label: 'إدارة المواد', icon: BookCopy },
-  { href: '/dashboard/questions', label: 'بنك الأسئلة', icon: HelpCircle },
-  { href: '/dashboard/exams', label: 'إدارة الامتحانات', icon: ScrollText },
-  // { href: '/dashboard/users', label: 'إدارة المستخدمين', icon: Users }, // Covered by UserTable on dashboard
-  // { href: '/dashboard/analytics/exams', label: 'تحليلات الامتحانات', icon: BarChart3 },
-  // { href: '/dashboard/news', label: 'إدارة الأخبار', icon: ClipboardList },
-  // { href: '/dashboard/announcements', label: 'الإعلانات الموجهة', icon: Megaphone },
-  // { href: '/dashboard/qr-codes', label: 'رموز QR', icon: QrCode },
-  // { href: '/dashboard/teachers', label: 'إدارة المدرسين', icon: GraduationCap },
-  // { href: '/dashboard/import', label: 'استيراد البيانات', icon: UploadCloud },
-  // { href: '/dashboard/export', label: 'تصدير البيانات', icon: DownloadCloud },
-  // { href: '/dashboard/settings', label: 'إعدادات التطبيق', icon: Settings },
+  { href: '/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/dashboard/subjects', label: 'Subjects', icon: BookOpenCheck },
+  // { href: '/dashboard/sections', label: 'Sections', icon: LayoutList }, // Removed this line
+  { href: '/dashboard/questions', label: 'Questions', icon: FileQuestion },
+  { href: '/dashboard/tags', label: 'Tags', icon: Tags }, 
+  { href: '/dashboard/exams', label: 'Exams', icon: ClipboardList },
+  { href: '/dashboard/analytics/exams', label: 'Exam Analytics', icon: BarChart3 },
+  { href: '/dashboard/news', label: 'News', icon: Newspaper },
+  { href: '/dashboard/announcements', label: 'Announcements', icon: Megaphone }, // New Announcements link
+  { href: '/dashboard/qr-codes', label: 'QR Codes', icon: QrCode },
+  { href: '/dashboard/teachers', label: 'Teachers', icon: Users2 },
+  { href: '/dashboard/export', label: 'Export Data', icon: Download },
+  { href: '/dashboard/import', label: 'Import Data', icon: Upload },
 ];
 
-export function AppSidebar() {
+export default function AppSidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push('/login');
-  };
 
   return (
-    <aside className="flex h-full w-64 flex-col border-l border-border bg-card p-4 shadow-lg">
-      <div className="mb-6 flex items-center justify-center space-x-2 rtl:space-x-reverse">
-        {/* Replace with actual logo if available */}
-        <Image src="https://placehold.co/40x40.png" alt="Atmetny Logo" width={40} height={40} data-ai-hint="logo education" className="rounded-md" />
-        <h1 className="text-xl font-bold font-headline text-primary">Atmetny Admin</h1>
-      </div>
-      <nav className="flex-grow space-y-1">
-        {navItems.map((item) => (
-          <Button
-            key={item.label}
-            variant={pathname === item.href ? 'secondary' : 'ghost'}
-            className="w-full justify-start"
-            asChild
-          >
-            <Link href={item.href} className="flex items-center gap-3">
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </Link>
-          </Button>
-        ))}
-      </nav>
-      <Separator className="my-4" />
-      {user && (
-        <div className="mb-4 p-2 text-center">
-          <p className="text-sm font-medium">{user.displayName || user.email}</p>
-          <p className="text-xs text-muted-foreground">{user.role}</p>
+    <Sidebar collapsible="icon" variant="sidebar" side="left">
+      <SidebarHeader className="flex items-center justify-between p-4">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <School className="h-8 w-8 text-primary transition-all group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" />
+          <span className="text-lg font-semibold text-foreground transition-all group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">
+            Atmetny Admin
+          </span>
+        </Link>
+        <div className="hidden md:block">
+          <SidebarTrigger/>
         </div>
-      )}
-      <Button variant="outline" className="w-full" onClick={handleLogout}>
-        <LogOut className="ml-2 h-5 w-5 rtl:mr-2 rtl:ml-0" />
-        تسجيل الخروج
-      </Button>
-    </aside>
+      </SidebarHeader>
+      <ScrollArea className="flex-1">
+        <SidebarContent className="p-2">
+          <SidebarMenu>
+            {navItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                  <SidebarMenuButton
+                    className={cn(
+                      "w-full justify-start",
+                      pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')  ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
+                    )}
+                    isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
+                    tooltip={{ children: item.label, side: 'right', align: 'center' }}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">{item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarContent>
+      </ScrollArea>
+      <SidebarFooter className="p-4">
+        <Link href="/dashboard/settings">
+            <SidebarMenuButton
+                className={cn(
+                "w-full justify-start",
+                pathname === '/dashboard/settings' ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
+                )}
+                isActive={pathname === '/dashboard/settings'}
+                tooltip={{ children: "Settings", side: 'right', align: 'center' }}
+            >
+                <Settings className="h-5 w-5 shrink-0" />
+                <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">Settings</span>
+            </SidebarMenuButton>
+        </Link>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

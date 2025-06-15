@@ -2,20 +2,20 @@
 
 ## Core Features:
 
-- Admin Authentication: Admin Authentication: Secure login using Firebase Authentication, restricted to users with 'admin' role.
-- Dashboard: Dashboard: Overview of app content, quick links, and registered users table.
-- Subject Management: Subject Management: CRUD operations for subjects, including name, branch, description, image, icon, and image hint.
-- Question Bank Management: Question Bank Management: CRUD operations for questions with multiple types (MCQ, True/False, Fill in the Blanks, Short Answer), difficulty levels, and subject association.
-- AI Sanity Check: AI Sanity Check: Use Genkit to verify the grammatical correctness of Arabic questions. Uses the LLM as a tool to suggest changes, but requires final sign-off from the admin user.
-- AI Tag Suggestion: AI Tag Suggestion: Use Genkit to suggest appropriate tags for questions based on their text. The AI tool presents suggested tags which the user can confirm.
-- Exam Management: Exam Management: CRUD operations for exams, linking questions, setting duration, and publishing status.
+- Admin Authentication: Secure login using Firebase Authentication, restricting access to users with the 'admin' role.
+- Navigation Sidebar: A sidebar navigation to manage Questions, Exams, News, QR Codes, Export and Import sections.
+- Add New Question Form: Form to input new question details.
+- Question Grid: Display and edit existing question in the Firestore collection.
+- JSON Export: Enable exporting data to JSON format using XLSX
+- CSV Import: Enable importing data from CSV files using PapaParse
+- Arabic Question Sanity Check: Use a tool to ensure questions have correct arabic grammatical structure and vocabulary using AI.
 
 ## Style Guidelines:
 
-- Primary color: Soft blue (#77B5FE) to represent trust and stability.
-- Background color: Light grayish-blue (#E9F0F8) for a clean and non-distracting backdrop.
-- Accent color: Pale purple (#B19CD9) for interactive elements.
-- Body and headline font: 'Inter' sans-serif for ease of reading.
-- Simple and consistent icons (Lucide Icons) to aid navigation.
-- Clean, user-friendly design with responsiveness across various screen sizes.
-- Simple and smooth transitions to improve user experience.
+- Primary color: Soft blue (#77B5FE), symbolizing trust and stability, commonly used in educational interfaces.
+- Background color: Light grayish-blue (#E9F0F8), providing a clean and non-distracting backdrop that is easy on the eyes for extended use.
+- Accent color: Muted violet (#B19CD9) for interactive elements to draw user's attention subtly without overwhelming the primary aesthetic.
+- Clean, sans-serif fonts for clear readability.
+- Simple and consistent icons to facilitate easy navigation.
+- Intuitive and responsive layout to adapt to different screen sizes.
+- Subtle transition animations for smooth navigation.
