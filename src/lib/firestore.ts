@@ -1,6 +1,6 @@
 // src/lib/firestore.ts
-// IMPORTANT: All functions in this file need to be reimplemented to use Supabase.
-// Only getSubjects and getTags have a skeletal implementation for demonstration.
+// IMPORTANT: Most functions in this file need to be reimplemented to use Supabase.
+// Implementations for getUsers, getUserByEmail, updateUser, getTeachers, getSubjects, and getTags are provided.
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
@@ -27,7 +27,7 @@ export const convertTimestampsToDates = (data: any[]): any[] => {
 // --- Subjects ---
 export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
   const { data: newSubject, error } = await supabase.from('subjects').insert(data).select().single();
-  if (error) throw error; 
+  if (error) throw error;
   return newSubject.id;
 };
 
@@ -40,7 +40,7 @@ export const getSubjects = async (): Promise<Subject[]> => {
 
   if (error) {
     console.error("Error fetching subjects from Supabase (in firestore.ts):", error);
-    throw error; 
+    throw error;
   }
   return (data as Subject[]) || [];
 };
@@ -75,31 +75,27 @@ export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArtic
 export const deleteNewsArticle = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteNewsArticle"); };
 export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getNewsArticleById"); };
 
-// --- Activation Codes (QR Codes) --- formerly Access Codes
+// --- Activation Codes (QR Codes) ---
 export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
-  // Example: const { data: newCode, error } = await supabase.from('activation_codes').insert(data).select().single();
-  // if (error) throw error; return newCode.id;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": addAccessCode (now addActivationCode for table 'activation_codes')");
+  const { data: newCode, error } = await supabase.from('activation_codes').insert(data).select().single();
+  if (error) throw error; return newCode.id;
 };
 export const getAccessCodes = async (): Promise<AccessCode[]> => {
-  // Example: const { data, error } = await supabase.from('activation_codes').select('*');
-  // if (error) throw error; return data as AccessCode[];
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": getAccessCodes (now getActivationCodes for table 'activation_codes')");
+  const { data, error } = await supabase.from('activation_codes').select('*');
+  if (error) throw error; return data as AccessCode[];
 };
 export const updateAccessCode = async (id: string, data: Partial<Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
-  // Example: const { error } = await supabase.from('activation_codes').update(data).eq('id', id);
-  // if (error) throw error;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAccessCode (now updateActivationCode for table 'activation_codes')");
+  const { error } = await supabase.from('activation_codes').update(data).eq('id', id);
+  if (error) throw error;
 };
 export const deleteAccessCode = async (id: string): Promise<void> => {
-  // Example: const { error } = await supabase.from('activation_codes').delete().eq('id', id);
-  // if (error) throw error;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteAccessCode (now deleteActivationCode for table 'activation_codes')");
+  const { error } = await supabase.from('activation_codes').delete().eq('id', id);
+  if (error) throw error;
 };
 export const getAccessCodeById = async (id: string): Promise<AccessCode | null> => {
-  // Example: const { data, error } = await supabase.from('activation_codes').select('*').eq('id', id).single();
-  // if (error && error.code !== 'PGRST116') throw error; return data as AccessCode | null;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": getAccessCodeById (now getActivationCodeById for table 'activation_codes')");
+  const { data, error } = await supabase.from('activation_codes').select('*').eq('id', id).single();
+  if (error && error.code !== 'PGRST116') throw error; // PGRST116 means no rows found, which is fine for a 'ById' query
+  return data as AccessCode | null;
 };
 
 // --- Subject Sections ---
@@ -116,29 +112,114 @@ export const updateLesson = async (subjectId: string, sectionId: string, lessonI
 export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
 
 // --- Users (Profiles) ---
+const mapDbProfileToUserProfile = (dbProfile: any): UserProfile => {
+  // Maps database snake_case to UserProfile camelCase or as defined in UserProfile type
+  return {
+    id: dbProfile.id,
+    email: dbProfile.email,
+    name: dbProfile.name, // Assuming UserProfile.name maps to db.name
+    avatar_url: dbProfile.avatar_url,
+    avatar_hint: dbProfile.avatar_hint,
+    points: dbProfile.points,
+    level: dbProfile.level,
+    progress_to_next_level: dbProfile.progress_to_next_level,
+    badges: dbProfile.badges,
+    rewards: dbProfile.rewards,
+    student_goals: dbProfile.student_goals,
+    branch: dbProfile.branch,
+    university: dbProfile.university,
+    major: dbProfile.major,
+    active_subscription: dbProfile.active_subscription,
+    role: dbProfile.role,
+    youtube_channel_url: dbProfile.youtube_channel_url,
+    subjects_taught_id: dbProfile.subjects_taught_ids, // Map plural DB column to singular type field
+    created_at: dbProfile.created_at,
+    updated_at: dbProfile.updated_at,
+  };
+};
+
+const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any => {
+  const dbData: any = {};
+  if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
+  if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
+  if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
+  // Map singular type field to plural DB column name
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id;
+  // Add other mappable fields here if UserProfile has different casing
+  if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
+  if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
+  if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
+  if (userProfileData.level !== undefined) dbData.level = userProfileData.level;
+  if (userProfileData.progress_to_next_level !== undefined) dbData.progress_to_next_level = userProfileData.progress_to_next_level;
+  if (userProfileData.badges !== undefined) dbData.badges = userProfileData.badges;
+  if (userProfileData.rewards !== undefined) dbData.rewards = userProfileData.rewards;
+  if (userProfileData.student_goals !== undefined) dbData.student_goals = userProfileData.student_goals;
+  if (userProfileData.branch !== undefined) dbData.branch = userProfileData.branch;
+  if (userProfileData.university !== undefined) dbData.university = userProfileData.university;
+  if (userProfileData.major !== undefined) dbData.major = userProfileData.major;
+  if (userProfileData.active_subscription !== undefined) dbData.active_subscription = userProfileData.active_subscription;
+
+  return dbData;
+};
+
+
 export const getUsers = async (): Promise<UserProfile[]> => {
-  // Example: const { data, error } = await supabase.from('profiles').select('*');
-  // if (error) throw error; return data as UserProfile[];
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": getUsers");
+  const { data, error } = await supabase.from('profiles').select('*');
+  if (error) {
+    console.error("Supabase error fetching users:", error);
+    throw error;
+  }
+  return data ? data.map(mapDbProfileToUserProfile) : [];
 };
+
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
-  // Example: const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
-  // if (error && error.code !== 'PGRST116') throw error; 
-  // return data as UserProfile | null;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": getUserByEmail");
+  const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
+  if (error && error.code !== 'PGRST116') { // PGRST116: "Searched item was not found"
+    console.error("Supabase error fetching user by email:", error);
+    throw error;
+  }
+  return data ? mapDbProfileToUserProfile(data) : null;
 };
+
 export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
-  // Example: const { error } = await supabase.from('profiles').update(data).eq('id', id);
-  // if (error) throw error;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": updateUser");
+  const dbData = mapUserProfileToDbProfile(data);
+  if (Object.keys(dbData).length === 0) {
+    console.warn("updateUser called with no data to update for id:", id);
+    return;
+  }
+  const { error } = await supabase.from('profiles').update(dbData).eq('id', id);
+  if (error) {
+    console.error("Supabase error updating user:", error);
+    throw error;
+  }
 };
 
 export const getTeachers = async (): Promise<UserProfile[]> => {
-  // Example: const { data, error } = await supabase.from('profiles').select('*').eq('role', 'teacher');
-  // if (error) throw error; return data as UserProfile[];
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": getTeachers");
+  const { data, error } = await supabase.from('profiles').select('*').eq('role', 'teacher');
+  if (error) {
+    console.error("Supabase error fetching teachers:", error);
+    throw error;
+  }
+  return data ? data.map(mapDbProfileToUserProfile) : [];
 };
-export const updateTeacherSubjects = async (teacherId: string, subjectIds: string[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateTeacherSubjects"); };
+export const updateTeacherSubjects = async (teacherId: string, subjectIds: string[]): Promise<void> => {
+  // This function needs to be re-thought. UserProfile now has `subjects_taught_id: string | null`.
+  // If a teacher can only teach one subject, this function should take a single subjectId or null.
+  // If multiple, the DB schema and UserProfile type need to change to support an array.
+  // For now, assuming we're setting a single subject_id.
+  const subject_id_to_set = subjectIds.length > 0 ? subjectIds[0] : null;
+  const { error } = await supabase
+    .from('profiles')
+    .update({ subjects_taught_ids: subject_id_to_set }) // Assuming DB col is 'subjects_taught_ids' for a single UUID
+    .eq('id', teacherId)
+    .eq('role', 'teacher');
+
+  if (error) {
+    console.error("Supabase error updating teacher subjects:", error);
+    throw error;
+  }
+};
+
 
 // --- Questions for Lesson ---
 export const getQuestionsForLesson = async (lessonId: string): Promise<Question[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getQuestionsForLesson"); };
@@ -187,9 +268,15 @@ export const getAnnouncementById = async (id: string): Promise<Announcement | nu
 export const addExamsBatch = async (exams: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addExamsBatch"); };
 export const addNewsArticlesBatch = async (articles: Omit<NewsArticle, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addNewsArticlesBatch"); };
 export const addAccessCodesBatch = async (codes: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> => {
-  // Example: const { error } = await supabase.from('activation_codes').insert(codes);
-  // if (error) throw error;
-  throw new Error(NOT_IMPLEMENTED_ERROR + ": addAccessCodesBatch (now for table 'activation_codes')");
+  const { error } = await supabase.from('activation_codes').insert(codes.map(c => ({...c, subject_id: c.subjectId, subject_name: c.subjectName, valid_from: c.validFrom, valid_until: c.validUntil, is_active: c.isActive, is_used: c.isUsed, used_at: c.usedAt, used_by_user_id: c.usedByUserId }))); // Ensure mapping
+  if (error) throw error;
 };
-export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addUsersBatch"); };
+export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void> => {
+    const usersToInsert = users.map(user => mapUserProfileToDbProfile(user));
+    const { error } = await supabase.from('profiles').insert(usersToInsert);
+    if (error) {
+        console.error("Supabase error batch inserting users:", error);
+        throw error;
+    }
+};
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'createdAt' | 'updatedAt' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
