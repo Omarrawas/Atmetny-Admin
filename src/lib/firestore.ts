@@ -29,9 +29,39 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   const dbData: any = { ...data };
   if (data.iconName !== undefined) { dbData.icon_name = data.iconName; delete dbData.iconName; }
   if (data.imageHint !== undefined) { dbData.image_hint = data.imageHint; delete dbData.imageHint; }
+  // Explicitly handle optional fields to ensure they are null if not provided or empty
+  dbData.description = data.description || null;
+  dbData.image = data.image || null;
+  dbData.icon_name = data.iconName || null;
+  dbData.image_hint = data.imageHint || null;
+  // 'order' is optional in Subject type, if not provided in `data`, it won't be in `dbData` or will be undefined.
+  // Supabase should handle undefined as default/null for nullable columns.
+  if (data.order !== undefined) {
+    dbData.order = data.order;
+  } else {
+    delete dbData.order; // Or set to null explicitly if your DB expects it: dbData.order = null;
+  }
 
-  const { data: newSubject, error } = await supabase.from('subjects').insert(dbData).select().single();
-  if (error) throw error;
+
+  const { data: newSubject, error } = await supabase
+    .from('subjects')
+    .insert(dbData)
+    .select('id') // Only select the ID, as that's what's returned.
+    .single();
+
+  if (error) {
+    console.error("Supabase error in addSubject:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    throw error; // Re-throw the original Supabase error
+  }
+  if (!newSubject || !newSubject.id) {
+    console.error("Supabase addSubject did not return a new subject with an ID. Response:", newSubject);
+    throw new Error("Failed to add subject: No ID returned from database.");
+  }
   return newSubject.id;
 };
 
@@ -59,6 +89,15 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
   const dbData: any = {...data};
   if (data.iconName !== undefined) { dbData.icon_name = data.iconName; delete dbData.iconName; }
   if (data.imageHint !== undefined) { dbData.image_hint = data.imageHint; delete dbData.imageHint; }
+  if (data.order !== undefined) {
+    dbData.order = data.order;
+  } else if (data.hasOwnProperty('order') && data.order === null) { // Handle explicit null for order
+    dbData.order = null;
+  } else {
+     // If order is not in data, don't include it in dbData to avoid overwriting with undefined
+    delete dbData.order;
+  }
+
 
   const { error } = await supabase.from('subjects').update(dbData).eq('id', id);
   if (error) throw error;
@@ -217,6 +256,7 @@ export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' |
     is_used: data.isUsed,
     used_at: data.usedAt,
     used_by_user_id: data.usedByUserId,
+    encoded_value: data.encodedValue, // ensure encodedValue is mapped
     // Remove the camelCase versions after mapping
   };
   // @ts-ignore
@@ -235,6 +275,8 @@ export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' |
   delete dbData.usedAt;
   // @ts-ignore
   delete dbData.usedByUserId;
+  // @ts-ignore
+  delete dbData.encodedValue; // This was missing, ensure `encoded_value` is set above
 
   const { data: newCode, error } = await supabase.from('activation_codes').insert(dbData).select().single();
   if (error) throw error; return newCode.id;
@@ -347,7 +389,7 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
   // When updating, we map the singular form in UserProfile to the plural form in DB
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id;
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; // Corrected here
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -375,7 +417,7 @@ export const getUsers = async (): Promise<UserProfile[]> => {
 
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') {
+  if (error && error.code !== 'PGRST116') { // PGRST116: No rows found, not an error for nullable return
     console.error("Supabase error fetching user by email:", error);
     throw error;
   }
@@ -390,7 +432,12 @@ export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id
   }
   const { error } = await supabase.from('profiles').update(dbData).eq('id', id);
   if (error) {
-    console.error("Supabase error updating user:", error);
+    console.error("Supabase error updating user:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
     throw error;
   }
 };
@@ -405,9 +452,10 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
 };
 
 export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
+  // Ensure the column name matches the DB schema: subjects_taught_ids
   const { error } = await supabase
     .from('profiles')
-    .update({ subjects_taught_ids: subjectId }) // DB column is subjects_taught_ids
+    .update({ subjects_taught_ids: subjectId })
     .eq('id', teacherId)
     .eq('role', 'teacher');
 
@@ -488,7 +536,7 @@ export const addAccessCodesBatch = async (codes: Omit<AccessCode, 'id' | 'create
     delete dbCode.isUsed;
     delete dbCode.usedAt;
     delete dbCode.usedByUserId;
-    delete dbCode.encodedValue;
+    // encodedValue is already snake_case in DB, so mapping from camelCase data.encodedValue is correct.
     return dbCode;
   });
   const { error } = await supabase.from('activation_codes').insert(codesToInsert);
@@ -503,3 +551,5 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
+    

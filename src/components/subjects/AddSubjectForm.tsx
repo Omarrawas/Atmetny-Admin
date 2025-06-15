@@ -30,6 +30,7 @@ const subjectSchema = z.object({
   iconName: z.string().max(50, "اسم الأيقونة طويل جدًا.").optional().nullable(),
   imageHint: z.string().max(100, "تلميح الصورة طويل جدًا.").optional().nullable(),
   image: z.string().url({ message: "الرجاء إدخال رابط صورة صحيح أو اتركه فارغًا." }).optional().or(z.literal('')),
+  order: z.coerce.number().int().min(0, "الترتيب يجب أن يكون رقمًا صحيحًا موجبًا أو صفرًا.").optional().nullable(),
 });
 
 type SubjectFormValues = z.infer<typeof subjectSchema>;
@@ -57,6 +58,7 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
       iconName: '',
       imageHint: '',
       image: '',
+      order: undefined, // Default to undefined so placeholder shows
     },
   });
 
@@ -66,11 +68,12 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
     try {
       const subjectId = await addSubject({
         name: data.name,
-        description: data.description || '',
+        description: data.description || '', // Ensures empty string if undefined
         branch: data.branch,
         image: data.image || null, 
         iconName: data.iconName || null,
         imageHint: data.imageHint || null,
+        order: data.order ?? undefined, // Pass undefined if null, so DB default can apply or it's omitted
       });
       toast({
         title: "نجاح!",
@@ -81,12 +84,32 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
       if (onSubjectAdded) {
         onSubjectAdded(subjectId);
       }
-    } catch (error) {
-      console.error("Error adding subject:", error);
+    } catch (error: any) { // Catch as 'any' to inspect properties
+      let errorMessage = "فشلت إضافة المادة. يرجى المحاولة مرة أخرى.";
+      // Log more detailed error from Supabase if available
+      if (error && typeof error === 'object') {
+        console.error("Error adding subject (details):", {
+          message: error.message,
+          details: error.details, // Supabase specific
+          hint: error.hint,       // Supabase specific
+          code: error.code,       // Supabase specific
+          stack: error.stack,
+          errorObject: error // Log the whole object for further inspection
+        });
+        // Construct a more informative message for the user if possible
+        if (error.message) {
+            errorMessage = `فشل إضافة المادة: ${error.message}`;
+            if (error.details) errorMessage += ` التفاصيل: ${error.details}`;
+            if (error.hint) errorMessage += ` تلميح: ${error.hint}`;
+        }
+      } else {
+        // Log error if it's not an object (e.g., just a string)
+        console.error("Error adding subject (unknown type):", error);
+      }
       toast({
         variant: "destructive",
         title: "خطأ",
-        description: "فشلت إضافة المادة. يرجى المحاولة مرة أخرى.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -203,6 +226,29 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
             </FormItem>
           )}
         />
+         <FormField
+          control={form.control}
+          name="order"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>ترتيب المادة (اختياري)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  placeholder="مثال: 1 (للأول)، 2 (للثاني)" 
+                  {...field} 
+                  value={field.value === null || field.value === undefined ? '' : field.value} // Handle null/undefined for input display
+                  onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))} // Parse to int or set null
+                  min="0"
+                />
+              </FormControl>
+              <FormDescription>
+                لتحديد ترتيب عرض هذه المادة. المواد ذات الأرقام الأصغر تظهر أولاً.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Button type="submit" disabled={isLoading} className="w-full">
           {isLoading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -215,3 +261,5 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
     </Form>
   );
 }
+
+    
