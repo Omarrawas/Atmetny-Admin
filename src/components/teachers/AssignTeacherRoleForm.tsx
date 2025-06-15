@@ -20,8 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const assignTeacherSchema = z.object({
   email: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح." }),
-  name: z.string().optional(), // Changed from displayName
-  subjectsTaughtIds: z.array(z.string()).optional().default([]), // This will cause a type error with the new UserProfile.subjects_taught_id
+  name: z.string().optional(), 
+  subjectsTaughtIds: z.array(z.string()).optional().default([]), 
   youtubeChannelUrl: z.string().url({ message: "الرجاء إدخال رابط URL صحيح لقناة يوتيوب." }).optional().or(z.literal('')),
 });
 
@@ -42,7 +42,7 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
     resolver: zodResolver(assignTeacherSchema),
     defaultValues: {
       email: '',
-      name: '', // Changed from displayName
+      name: '', 
       subjectsTaughtIds: [],
       youtubeChannelUrl: '',
     },
@@ -70,7 +70,7 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
     try {
       const existingUser = await getUserByEmail(data.email);
 
-      if (!existingUser || !existingUser.id) { // Changed from uid to id
+      if (!existingUser || !existingUser.id) { 
         setFormError("لم يتم العثور على مستخدم بهذا البريد الإلكتروني. يرجى التأكد من وجود المستخدم في نظام المصادقة ولديه ملف شخصي.");
         setIsLoading(false);
         return;
@@ -78,21 +78,15 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
 
       const updatePayload: Partial<UserProfile> = {
         role: 'teacher',
-        // subjects_taught_id: data.subjectsTaughtIds?.[0] || null, // Example if adapting to single subject; form needs rework
-        // For now, this will cause a type error because UserProfile expects subjects_taught_id (string|null)
-        // and the form provides subjectsTaughtIds (string[])
-        // To avoid breaking the build entirely from this file, I'll pass it as any for now,
-        // but this highlights the mismatch that needs to be resolved.
-        subjects_taught_ids: data.subjectsTaughtIds as any, 
+        subjects_taught_id: data.subjectsTaughtIds && data.subjectsTaughtIds.length > 0 ? data.subjectsTaughtIds[0] : null,
         youtube_channel_url: data.youtubeChannelUrl || null,
       };
 
       if (data.name && data.name.trim() !== '') {
-        updatePayload.name = data.name.trim(); // Changed from displayName
+        updatePayload.name = data.name.trim(); 
       }
 
-
-      await updateUser(existingUser.id, updatePayload); // Changed from uid to id
+      await updateUser(existingUser.id, updatePayload); 
 
       toast({
         title: "نجاح!",
@@ -143,7 +137,7 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
             />
             <FormField
               control={form.control}
-              name="name" // Changed from displayName
+              name="name" 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>اسم العرض (اختياري)</FormLabel>
@@ -178,8 +172,10 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
               name="subjectsTaughtIds"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>المواد التي سيدرسها (الاختصاص)</FormLabel>
-                  <FormDescription>ملاحظة: بسبب تحديث بنية المستخدم، هذا الجزء يحتاج إلى تعديل ليتوافق مع إسناد مادة واحدة أو تعديل قاعدة البيانات.</FormDescription>
+                  <FormLabel>المادة التي سيدرسها</FormLabel>
+                  <FormDescription>
+                    اختر مادة واحدة ليتم ربطها بالمدرس. الواجهة الحالية تسمح بتحديد متعدد ولكن سيتم حفظ المادة الأولى المحددة فقط بسبب بنية قاعدة البيانات.
+                  </FormDescription>
                   {isFetchingSubjects ? (
                      <div className="flex items-center justify-center p-2"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> <span className="text-sm text-muted-foreground ml-2">جاري تحميل المواد...</span></div>
                   ) : allSubjects.length === 0 ? (
@@ -194,12 +190,8 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
                               checked={field.value?.includes(subject.id!)}
                               onCheckedChange={(checked) => {
                                 return checked
-                                  ? field.onChange([...(field.value || []), subject.id!])
-                                  : field.onChange(
-                                      (field.value || []).filter(
-                                        (value) => value !== subject.id
-                                      )
-                                    );
+                                  ? field.onChange([subject.id!]) // Allow only one selection
+                                  : field.onChange([]);
                               }}
                             />
                             <Label htmlFor={`assign-subject-${subject.id}`} className="font-normal text-sm cursor-pointer">

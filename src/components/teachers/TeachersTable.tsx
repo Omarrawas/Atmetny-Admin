@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { getTeachers, getSubjects, updateTeacherSubjects, updateUser } from "@/lib/firestore"; // Added updateUser
+import { getTeachers, getSubjects, updateUser } from "@/lib/firestore"; 
 import type { UserProfile, Subject } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Edit, Check, X, Youtube, ExternalLink } from "lucide-react"; // Added Youtube and ExternalLink
+import { Loader2, Edit, Check, X, Youtube, ExternalLink } from "lucide-react"; 
 import {
   Dialog,
   DialogContent,
@@ -29,16 +29,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input"; // For editing YouTube URL
+import { Input } from "@/components/ui/input"; 
 
 export default function TeachersTable() {
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingTeacher, setEditingTeacher] = useState<UserProfile | null>(null);
-  const [selectedSubjectIdsInDialog, setSelectedSubjectIdsInDialog] = useState<string[]>([]); // Kept as array for modal UI, but will save as single
+  const [selectedSubjectIdsInDialog, setSelectedSubjectIdsInDialog] = useState<string[]>([]); 
   const [currentYoutubeUrl, setCurrentYoutubeUrl] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false); // Unified saving state
+  const [isSaving, setIsSaving] = useState(false); 
 
   const { toast } = useToast();
 
@@ -79,18 +79,15 @@ export default function TeachersTable() {
 
   const handleOpenEditModal = (teacher: UserProfile) => {
     setEditingTeacher(teacher);
-    // If subjects_taught_id is a single string, wrap it in an array for multi-select UI,
-    // or adapt UI to single select. For now, we'll adapt to array if it's a single string.
     setSelectedSubjectIdsInDialog(teacher.subjects_taught_id ? [teacher.subjects_taught_id] : []);
     setCurrentYoutubeUrl(teacher.youtube_channel_url || '');
   };
 
   const handleSubjectSelectionChange = (subjectId: string, checked: boolean | "indeterminate") => {
-    // This modal UI currently supports multiple selection.
-    // If UserProfile.subjects_taught_id is truly single, this UI needs to change to a radio or select.
-    // For now, it will store an array, and handleSaveTeacherDetails will pick the first one if needed.
+    // If only one subject can be taught, this should be a radio or single select.
+    // For now, we'll allow selecting one, and if multiple are checked, save the first.
     if (checked === true) {
-      setSelectedSubjectIdsInDialog(prev => [...prev, subjectId]);
+      setSelectedSubjectIdsInDialog([subjectId]); // Replace with the new selection
     } else {
       setSelectedSubjectIdsInDialog(prev => prev.filter(id => id !== subjectId));
     }
@@ -111,16 +108,15 @@ export default function TeachersTable() {
       }
 
       const updatePayload: Partial<UserProfile> = {
-        // If UserProfile.subjects_taught_id is single, take the first from selected or null
         subjects_taught_id: selectedSubjectIdsInDialog.length > 0 ? selectedSubjectIdsInDialog[0] : null,
         youtube_channel_url: currentYoutubeUrl || null,
       };
 
-      await updateUser(editingTeacher.id, updatePayload); // Use 'id'
+      await updateUser(editingTeacher.id, updatePayload); 
       
       toast({
         title: "نجاح",
-        description: `تم تحديث تفاصيل المدرس ${editingTeacher.name || editingTeacher.email}.`, // Use 'name'
+        description: `تم تحديث تفاصيل المدرس ${editingTeacher.name || editingTeacher.email}.`, 
       });
       await fetchTeachersAndSubjects();
       setEditingTeacher(null); 
@@ -157,31 +153,22 @@ export default function TeachersTable() {
             <TableHeader>
               <TableRow>
                 <TableHead className="font-semibold">اسم المدرس / البريد الإلكتروني</TableHead>
-                <TableHead className="font-semibold">المادة (المواد) الدراسية</TableHead>
+                <TableHead className="font-semibold">المادة الدراسية</TableHead>
                 <TableHead className="font-semibold">قناة يوتيوب</TableHead>
                 <TableHead className="font-semibold text-right">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {teachers.map(teacher => (
-                <TableRow key={teacher.id}> {/* Use 'id' */}
+                <TableRow key={teacher.id}> 
                   <TableCell className="font-medium">
-                    {teacher.name || teacher.email} {/* Use 'name' */}
+                    {teacher.name || teacher.email} 
                   </TableCell>
                   <TableCell>
-                    {/* This part needs to be updated if subjects_taught_id is single */}
                     {teacher.subjects_taught_id ? (
                         <Badge variant="secondary">
                             {subjectsMap.get(teacher.subjects_taught_id) || 'مادة غير معروفة'}
                         </Badge>
-                    ) : (teacher.subjects_taught_ids && teacher.subjects_taught_ids.length > 0) ? ( // Fallback for old array structure if present
-                      <div className="flex flex-wrap gap-1">
-                        {teacher.subjects_taught_ids.map(subjectId => (
-                          <Badge key={subjectId} variant="secondary">
-                            {subjectsMap.get(subjectId) || 'مادة غير معروفة'}
-                          </Badge>
-                        ))}
-                      </div>
                     ) : (
                       <span className="text-muted-foreground">لم يتم تعيين مواد</span>
                     )}
@@ -210,12 +197,12 @@ export default function TeachersTable() {
                           <Edit className="mr-1 h-4 w-4 rtl:ml-1 rtl:mr-0" /> إدارة التفاصيل
                         </Button>
                       </DialogTrigger>
-                      {editingTeacher && editingTeacher.id === teacher.id && ( // Use 'id'
+                      {editingTeacher && editingTeacher.id === teacher.id && ( 
                         <DialogContent className="sm:max-w-[425px] md:max-w-lg">
                           <DialogHeader>
-                            <DialogTitle>إدارة تفاصيل المدرس: {editingTeacher.name || editingTeacher.email}</DialogTitle> {/* Use 'name' */}
+                            <DialogTitle>إدارة تفاصيل المدرس: {editingTeacher.name || editingTeacher.email}</DialogTitle> 
                             <DialogDescription>
-                              اختر المواد التي يدرسها هذا المدرس وعدل رابط قناة يوتيوب.
+                              اختر المادة التي يدرسها هذا المدرس وعدل رابط قناة يوتيوب.
                             </DialogDescription>
                           </DialogHeader>
                           
@@ -233,15 +220,15 @@ export default function TeachersTable() {
                             </div>
 
                             <div>
-                                <Label className="text-sm font-medium">المواد الدراسية</Label>
-                                <Label className="text-xs text-muted-foreground block mt-1">ملاحظة: حاليًا يتم حفظ مادة واحدة فقط للمدرس بناءً على بنية قاعدة البيانات.</Label>
+                                <Label className="text-sm font-medium">المادة الدراسية</Label>
+                                <Label className="text-xs text-muted-foreground block mt-1">ملاحظة: يمكن إسناد مادة واحدة فقط لكل مدرس حاليًا.</Label>
                                 {allSubjects.length > 0 ? (
                                 <ScrollArea className="h-60 mt-1 border rounded-md p-2">
                                     <div className="space-y-2">
                                     {allSubjects.map(subject => (
                                         <div key={subject.id} className="flex items-center space-x-2 rtl:space-x-reverse p-2 rounded-md hover:bg-muted/50">
                                         <Checkbox
-                                            id={`subject-${subject.id}-${editingTeacher!.id}`} // Use 'id'
+                                            id={`subject-${subject.id}-${editingTeacher!.id}`} 
                                             checked={selectedSubjectIdsInDialog.includes(subject.id!)}
                                             onCheckedChange={(checked) => handleSubjectSelectionChange(subject.id!, checked)}
                                         />
