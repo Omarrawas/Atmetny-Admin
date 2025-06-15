@@ -28,12 +28,12 @@ import { Loader2, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const ROLES: UserProfile['role'][] = ['student', 'teacher', 'admin', 'user'];
-const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase.";
+const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
 
 export default function UserTable() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdatingRole, setIsUpdatingRole] = useState<string | null>(null); 
+  const [isUpdatingRole, setIsUpdatingRole] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
@@ -69,13 +69,13 @@ export default function UserTable() {
     setIsUpdatingRole(userId);
     try {
       // Assuming updateUser from lib/firestore will be adapted for Supabase
-      await updateUser(userId, { role: newRole }); 
+      await updateUser(userId, { role: newRole });
       toast({
         title: "Role Updated",
         description: `User's role successfully changed to ${newRole}.`,
       });
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
           user.id === userId ? { ...user, role: newRole } : user // Use 'id' for Supabase
         )
       );
@@ -107,7 +107,7 @@ export default function UserTable() {
       </div>
     );
   }
-  
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -136,7 +136,7 @@ export default function UserTable() {
             </TableHeader>
             <TableBody>
               {users.map(user => (
-                <TableRow key={user.id}> {/* Use 'id' for Supabase */}
+                <TableRow key={user.id}>{/* Ensure no whitespace before TableCell */}
                   <TableCell className="font-medium">{user.email || "N/A"}</TableCell>
                   <TableCell className="capitalize">{user.role || "Not set"}</TableCell>
                   <TableCell className="text-right">
