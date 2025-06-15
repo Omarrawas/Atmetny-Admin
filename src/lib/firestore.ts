@@ -38,8 +38,11 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    dbData.order = null; // Explicitly set to null if not provided or provided as null
+    // If order is not provided or explicitly null, omit it or set to null
+    // depending on your DB schema's default behavior for 'order'
+    dbData.order = null; 
   }
+
 
   const { data: newSubject, error } = await supabase
     .from('subjects')
@@ -59,7 +62,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
       details: error.details,
       hint: error.hint,
       code: error.code,
-      status: (error as any).status,
+      status: (error as any).status, // Cast to any to access status if it exists
     });
     throw error;
   }
@@ -330,14 +333,43 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 };
 
 // --- Subject Sections ---
-export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectSection"); };
+export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'isLocked'>): Promise<string> => {
+  const sectionDataToInsert: any = {
+    subject_id: subjectId,
+    title: data.title,
+    type: data.type,
+    // 'is_locked' defaults to true in the DB schema, so we don't need to set it here
+    // unless explicitly passed in `data` and the type allows it.
+    // For now, assuming the `data` object for add doesn't include `isLocked`.
+  };
+  if (data.order !== undefined && data.order !== null) {
+    sectionDataToInsert.order = data.order;
+  } else {
+    sectionDataToInsert.order = null; // Ensure it's null if not provided for consistent DB behavior
+  }
+
+  const { data: newSection, error } = await supabase
+    .from('subject_sections')
+    .insert(sectionDataToInsert)
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error("Supabase error adding subject section:", error);
+    throw error;
+  }
+  if (!newSection || !newSection.id) {
+    throw new Error("Failed to add subject section: No ID returned from database.");
+  }
+  return newSection.id;
+};
+
 export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => {
-  // Assuming your table is named 'subject_sections'
   const { data, error } = await supabase
     .from('subject_sections')
     .select('*')
-    .eq('subject_id', subjectId) // Assuming you have a 'subject_id' column in 'subject_sections'
-    .order('order', { ascending: true, nullsLast: true }) // Optional: order by 'order' field
+    .eq('subject_id', subjectId)
+    .order('order', { ascending: true, nullsLast: true })
     .order('title', { ascending: true });
 
   if (error) {
@@ -348,15 +380,13 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
 
   return data.map((section: any) => ({
     id: section.id,
-    subjectId: section.subject_id, // This field is in the type, but we are already filtering by it.
-                                  // It might be useful to still include it in the returned object.
+    subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
     order: section.order,
-    isLocked: section.is_locked,
+    isLocked: section.is_locked, // Map from DB
     created_at: section.created_at,
     updated_at: section.updated_at,
-    // 'lessons' field is typically populated separately or via a JOIN if needed here.
   })) as SubjectSection[];
 };
 export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
@@ -561,3 +591,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
     
+
