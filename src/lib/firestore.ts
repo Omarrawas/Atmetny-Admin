@@ -4,7 +4,7 @@
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
-import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType } from '@/types';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion } from '@/types';
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
 
@@ -26,37 +26,44 @@ export const convertTimestampsToDates = (data: any[]): any[] => {
 
 // --- Subjects ---
 export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
-  const dbData: any = { ...data };
-  if (data.iconName !== undefined) { dbData.icon_name = data.iconName; delete dbData.iconName; }
-  if (data.imageHint !== undefined) { dbData.image_hint = data.imageHint; delete dbData.imageHint; }
-  // Explicitly handle optional fields to ensure they are null if not provided or empty
-  dbData.description = data.description || null;
-  dbData.image = data.image || null;
-  dbData.icon_name = data.iconName || null;
-  dbData.image_hint = data.imageHint || null;
-  // 'order' is optional in Subject type, if not provided in `data`, it won't be in `dbData` or will be undefined.
-  // Supabase should handle undefined as default/null for nullable columns.
-  if (data.order !== undefined) {
+  const dbData: any = { 
+    name: data.name,
+    description: data.description || null,
+    branch: data.branch,
+    image: data.image || null,
+    icon_name: data.iconName || null,
+    image_hint: data.imageHint || null,
+  };
+  
+  if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    delete dbData.order; // Or set to null explicitly if your DB expects it: dbData.order = null;
+    dbData.order = null; 
   }
-
 
   const { data: newSubject, error } = await supabase
     .from('subjects')
     .insert(dbData)
-    .select('id') // Only select the ID, as that's what's returned.
+    .select('id') 
     .single();
 
   if (error) {
-    console.error("Supabase error in addSubject:", {
+    // Enhanced error logging
+    console.error("Raw Supabase error object in addSubject:", error);
+    try {
+      // Attempt to stringify the error, including non-enumerable properties
+      console.error("Stringified Supabase error in addSubject:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("Could not stringify Supabase error in addSubject:", e);
+    }
+    console.error("Parsed Supabase error details in addSubject:", {
       message: error.message,
       details: error.details,
       hint: error.hint,
       code: error.code,
+      status: (error as any).status, // Common for HTTP-like errors
     });
-    throw error; // Re-throw the original Supabase error
+    throw error; 
   }
   if (!newSubject || !newSubject.id) {
     console.error("Supabase addSubject did not return a new subject with an ID. Response:", newSubject);
@@ -91,13 +98,11 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
   if (data.imageHint !== undefined) { dbData.image_hint = data.imageHint; delete dbData.imageHint; }
   if (data.order !== undefined) {
     dbData.order = data.order;
-  } else if (data.hasOwnProperty('order') && data.order === null) { // Handle explicit null for order
+  } else if (data.hasOwnProperty('order') && data.order === null) { 
     dbData.order = null;
   } else {
-     // If order is not in data, don't include it in dbData to avoid overwriting with undefined
     delete dbData.order;
   }
-
 
   const { error } = await supabase.from('subjects').update(dbData).eq('id', id);
   if (error) throw error;
@@ -105,7 +110,7 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
 export const deleteSubject = async (subjectId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubject"); };
 export const getSubjectById = async (id: string): Promise<Subject | null> => {
    const { data, error } = await supabase.from('subjects').select('*').eq('id', id).single();
-   if (error && error.code !== 'PGRST116') throw error; // PGRST116 means no rows found, which is fine for a 'nullable' return
+   if (error && error.code !== 'PGRST116') throw error; 
    if (!data) return null;
    return {
      ...data,
@@ -145,35 +150,34 @@ export const getQuestions = async (): Promise<Question[]> => {
       isLocked: q.is_locked,
       created_at: q.created_at,
       updated_at: q.updated_at,
-      // subject field would require a join or separate fetch
     };
 
     switch (q.question_type as QuestionType) {
       case 'mcq':
         return {
           ...baseQuestion,
-          options: q.options as Option[], // Ensure options is correctly typed as Option[]
+          options: q.options as Option[], 
           correctOptionId: q.correct_option_id,
-        } as Question;
+        } as MCQQuestion;
       case 'true_false':
         return {
           ...baseQuestion,
-          options: q.options as Option[] || [{id: 'true', text: 'صحيح'}, {id: 'false', text: 'خطأ'}], // Default options if not stored
+          options: q.options as Option[] || [{id: 'true', text: 'صحيح'}, {id: 'false', text: 'خطأ'}],
           correctOptionId: q.correct_option_id as 'true' | 'false',
-        } as Question;
+        } as TrueFalseQuestion;
       case 'fill_in_the_blanks':
         return {
           ...baseQuestion,
           correctAnswers: q.correct_answers as string[],
-        } as Question;
+        } as FillInTheBlanksQuestion;
       case 'short_answer':
         return {
           ...baseQuestion,
           modelAnswer: q.model_answer,
-        } as Question;
+        } as ShortAnswerQuestion;
       default:
         console.warn(`Unknown question type encountered: ${q.question_type} for question ID: ${q.id}`);
-        return { ...baseQuestion } as Question;
+        return { ...baseQuestion } as Question; // Should ideally be BaseQuestion or a more generic Question if type is truly unknown
     }
   });
 };
@@ -201,14 +205,14 @@ export const getExams = async (): Promise<Exam[]> => {
     title: exam.title,
     description: exam.description,
     subjectId: exam.subject_id,
-    questionIds: exam.question_ids || [], // Assuming question_ids is an array column
+    questionIds: exam.question_ids || [], 
     published: exam.published,
     image: exam.image,
     imageHint: exam.image_hint,
     teacherName: exam.teacher_name,
     teacherId: exam.teacher_id,
-    durationInMinutes: exam.duration, // Map 'duration' from DB to 'durationInMinutes' in type
-    duration: exam.duration, // Keep 'duration' as well if type has both
+    durationInMinutes: exam.duration,
+    duration: exam.duration, 
     created_at: exam.created_at,
     updated_at: exam.updated_at,
   })) as Exam[];
@@ -247,7 +251,7 @@ export const getNewsArticleById = async (id: string): Promise<NewsArticle | null
 // --- Activation Codes (QR Codes) ---
 export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
   const dbData = {
-    ...data, // Spread first to include all fields like name, type, encodedValue
+    ...data,
     subject_id: data.subjectId,
     subject_name: data.subjectName,
     valid_from: data.validFrom,
@@ -256,27 +260,10 @@ export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' |
     is_used: data.isUsed,
     used_at: data.usedAt,
     used_by_user_id: data.usedByUserId,
-    encoded_value: data.encodedValue, // ensure encodedValue is mapped
-    // Remove the camelCase versions after mapping
+    encoded_value: data.encodedValue,
   };
   // @ts-ignore
-  delete dbData.subjectId;
-  // @ts-ignore
-  delete dbData.subjectName;
-  // @ts-ignore
-  delete dbData.validFrom;
-  // @ts-ignore
-  delete dbData.validUntil;
-  // @ts-ignore
-  delete dbData.isActive;
-  // @ts-ignore
-  delete dbData.isUsed;
-  // @ts-ignore
-  delete dbData.usedAt;
-  // @ts-ignore
-  delete dbData.usedByUserId;
-  // @ts-ignore
-  delete dbData.encodedValue; // This was missing, ensure `encoded_value` is set above
+  delete dbData.subjectId; delete dbData.subjectName; delete dbData.validFrom; delete dbData.validUntil; delete dbData.isActive; delete dbData.isUsed; delete dbData.usedAt; delete dbData.usedByUserId;
 
   const { data: newCode, error } = await supabase.from('activation_codes').insert(dbData).select().single();
   if (error) throw error; return newCode.id;
@@ -377,7 +364,7 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile => {
     active_subscription: dbProfile.active_subscription,
     role: dbProfile.role as UserProfile['role'],
     youtube_channel_url: dbProfile.youtube_channel_url,
-    subjects_taught_id: dbProfile.subjects_taught_ids, // maps from db's subjects_taught_ids
+    subjects_taught_id: dbProfile.subjects_taught_ids, 
     created_at: dbProfile.created_at,
     updated_at: dbProfile.updated_at,
   };
@@ -388,8 +375,7 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  // When updating, we map the singular form in UserProfile to the plural form in DB
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; // Corrected here
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; 
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -417,7 +403,7 @@ export const getUsers = async (): Promise<UserProfile[]> => {
 
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') { // PGRST116: No rows found, not an error for nullable return
+  if (error && error.code !== 'PGRST116') { 
     console.error("Supabase error fetching user by email:", error);
     throw error;
   }
@@ -452,10 +438,9 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
 };
 
 export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
-  // Ensure the column name matches the DB schema: subjects_taught_ids
   const { error } = await supabase
     .from('profiles')
-    .update({ subjects_taught_ids: subjectId })
+    .update({ subjects_taught_ids: subjectId }) 
     .eq('id', teacherId)
     .eq('role', 'teacher');
 
@@ -536,7 +521,6 @@ export const addAccessCodesBatch = async (codes: Omit<AccessCode, 'id' | 'create
     delete dbCode.isUsed;
     delete dbCode.usedAt;
     delete dbCode.usedByUserId;
-    // encodedValue is already snake_case in DB, so mapping from camelCase data.encodedValue is correct.
     return dbCode;
   });
   const { error } = await supabase.from('activation_codes').insert(codesToInsert);
@@ -551,5 +535,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
-
     
