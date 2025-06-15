@@ -180,7 +180,27 @@ export const getExamById = async (id: string): Promise<Exam | null> => { throw n
 
 // --- News Articles ---
 export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addNewsArticle"); };
-export const getNewsArticles = async (): Promise<NewsArticle[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getNewsArticles"); };
+export const getNewsArticles = async (): Promise<NewsArticle[]> => {
+  const { data, error } = await supabase
+    .from('news_articles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("Supabase error fetching news articles:", error);
+    throw error;
+  }
+  if (!data) return [];
+
+  return data.map((article: any) => ({
+    id: article.id,
+    title: article.title,
+    content: article.content,
+    imageUrl: article.image_url,
+    created_at: article.created_at,
+    updated_at: article.updated_at,
+  })) as NewsArticle[];
+};
 export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateNewsArticle"); };
 export const deleteNewsArticle = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteNewsArticle"); };
 export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getNewsArticleById"); };
@@ -483,4 +503,3 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
-
