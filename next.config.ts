@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
         hostname: 'th.bing.com',
         port: '',
         pathname: '/**',
+      },
+      { // Added for www.google.com
+        protocol: 'https',
+        hostname: 'www.google.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
