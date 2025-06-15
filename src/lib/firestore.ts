@@ -1,6 +1,6 @@
 // src/lib/firestore.ts
 // IMPORTANT: Most functions in this file need to be reimplemented to use Supabase.
-// Implementations for getUsers, getUserByEmail, updateUser, getTeachers, getSubjects, getTags, getQuestions, and getExams are provided.
+// Implementations for getUsers, getUserByEmail, updateUser, getTeachers, getSubjects, getTags, getQuestions, getExams, getNewsArticles are provided.
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
@@ -26,7 +26,7 @@ export const convertTimestampsToDates = (data: any[]): any[] => {
 
 // --- Subjects ---
 export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
-  const dbData: any = { 
+  const dbData: any = {
     name: data.name,
     description: data.description || null,
     branch: data.branch,
@@ -34,24 +34,22 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
     icon_name: data.iconName || null,
     image_hint: data.imageHint || null,
   };
-  
+
   if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    dbData.order = null; 
+    dbData.order = null; // Explicitly set to null if not provided or provided as null
   }
 
   const { data: newSubject, error } = await supabase
     .from('subjects')
     .insert(dbData)
-    .select('id') 
+    .select('id')
     .single();
 
   if (error) {
-    // Enhanced error logging
     console.error("Raw Supabase error object in addSubject:", error);
     try {
-      // Attempt to stringify the error, including non-enumerable properties
       console.error("Stringified Supabase error in addSubject:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
       console.error("Could not stringify Supabase error in addSubject:", e);
@@ -61,9 +59,9 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
       details: error.details,
       hint: error.hint,
       code: error.code,
-      status: (error as any).status, // Common for HTTP-like errors
+      status: (error as any).status,
     });
-    throw error; 
+    throw error;
   }
   if (!newSubject || !newSubject.id) {
     console.error("Supabase addSubject did not return a new subject with an ID. Response:", newSubject);
@@ -177,7 +175,7 @@ export const getQuestions = async (): Promise<Question[]> => {
         } as ShortAnswerQuestion;
       default:
         console.warn(`Unknown question type encountered: ${q.question_type} for question ID: ${q.id}`);
-        return { ...baseQuestion } as Question; // Should ideally be BaseQuestion or a more generic Question if type is truly unknown
+        return { ...baseQuestion } as Question; 
     }
   });
 };
@@ -333,7 +331,34 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 
 // --- Subject Sections ---
 export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectSection"); };
-export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectSections"); };
+export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => {
+  // Assuming your table is named 'subject_sections'
+  const { data, error } = await supabase
+    .from('subject_sections')
+    .select('*')
+    .eq('subject_id', subjectId) // Assuming you have a 'subject_id' column in 'subject_sections'
+    .order('order', { ascending: true, nullsLast: true }) // Optional: order by 'order' field
+    .order('title', { ascending: true });
+
+  if (error) {
+    console.error(`Supabase error fetching sections for subject ${subjectId}:`, error);
+    throw error;
+  }
+  if (!data) return [];
+
+  return data.map((section: any) => ({
+    id: section.id,
+    subjectId: section.subject_id, // This field is in the type, but we are already filtering by it.
+                                  // It might be useful to still include it in the returned object.
+    title: section.title,
+    type: section.type as 'theory' | 'practical',
+    order: section.order,
+    isLocked: section.is_locked,
+    created_at: section.created_at,
+    updated_at: section.updated_at,
+    // 'lessons' field is typically populated separately or via a JOIN if needed here.
+  })) as SubjectSection[];
+};
 export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
 export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubjectSection"); };
 
