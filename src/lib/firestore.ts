@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabaseClient';
 import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion } from '@/types';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
 
@@ -39,7 +40,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    dbData.order = null; // Explicitly set to null if undefined, to clear or use DB default
+    dbData.order = null; 
   }
 
   const { data: newSubject, error } = await supabase
@@ -332,22 +333,30 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 
 // --- Subject Sections ---
 export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'isLocked'>): Promise<string> => {
+  const newSectionUUID = uuidv4(); 
+
+  // Assuming the primary key column in the DB for 'subject_sections' is 'section_id'
+  // and other columns match the type (e.g., 'subject_id' for the foreign key).
   const sectionDataToInsert: any = {
-    subject_id: subjectId,
+    section_id: newSectionUUID,    // PK for subject_sections table
+    subject_id: subjectId,         // FK to subjects table
     title: data.title,
     type: data.type,
     order: data.order ?? null,
+    // is_locked usually defaults in DB or is handled by RLS/triggers
   };
 
-  const { data: newSection, error } = await supabase
+  console.log("Attempting to insert into subject_sections:", JSON.stringify(sectionDataToInsert, null, 2));
+
+  const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('id')
+    .select('section_id') // Select the PK column we inserted
     .single();
 
   if (error) {
     console.error("Supabase error in addSubjectSection (raw object follows):");
-    console.error(error); // Log the error object itself
+    console.error(error); 
     try {
       console.error("Stringified Supabase error in addSubjectSection:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -362,17 +371,20 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     });
     throw error;
   }
-  if (!newSection || !newSection.id) {
-    console.error("Supabase addSubjectSection did not return a new section with an ID. Response:", newSection);
-    throw new Error("Failed to add subject section: No ID returned from database.");
+  
+  if (!insertedData || !insertedData.section_id) {
+    console.error("Supabase addSubjectSection did not return the expected 'section_id'. Response:", insertedData);
+    throw new Error("Failed to add subject section: No 'section_id' returned from database or unexpected response.");
   }
-  return newSection.id;
+  
+  // The function returns the ID, which will be used as `id` in the client-side SubjectSection model
+  return insertedData.section_id;
 };
 
 export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => {
   const { data, error } = await supabase
     .from('subject_sections')
-    .select('*')
+    .select('*') // Select all columns
     .eq('subject_id', subjectId)
     .order('order', { ascending: true, nullsLast: true })
     .order('title', { ascending: true });
@@ -384,7 +396,7 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: section.id,
+    id: section.section_id || section.id, // Prefer section_id if it exists, fallback to id for the PK
     subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
@@ -435,7 +447,8 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id;
+  // Ensure this matches the DB column name for subjects taught
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; 
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -500,7 +513,7 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
 export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
   const { error } = await supabase
     .from('profiles')
-    .update({ subjects_taught_ids: subjectId })
+    .update({ subjects_taught_ids: subjectId }) // Ensure this column name matches your DB
     .eq('id', teacherId)
     .eq('role', 'teacher');
 
@@ -596,5 +609,3 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
     
-
-
