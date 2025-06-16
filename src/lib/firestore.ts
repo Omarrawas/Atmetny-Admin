@@ -139,9 +139,9 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
     question_type: data.questionType,
     question_text: data.questionText,
     difficulty: data.difficulty,
-    subject_id: data.subjectId || null,
-    lesson_id: data.lessonId || null,
-    tag_ids: data.tagIds || [],
+    subject_id: (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null,
+    lesson_id: (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null,
+    tag_ids: Array.isArray(data.tagIds) ? data.tagIds : [], // Ensure tag_ids is always an array
     is_sane: data.isSane ?? null,
     sanity_explanation: data.sanityExplanation ?? null,
     is_locked: data.isLocked ?? true,
@@ -807,5 +807,6 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
 
     
+
 
 
