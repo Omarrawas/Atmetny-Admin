@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/subjects', label: 'Subjects', icon: BookOpenCheck },
-  // { href: '/dashboard/sections', label: 'Sections', icon: LayoutList }, // Removed this line
   { href: '/dashboard/questions', label: 'Questions', icon: FileQuestion },
   { href: '/dashboard/tags', label: 'Tags', icon: Tags }, 
   { href: '/dashboard/exams', label: 'Exams', icon: ClipboardList },
