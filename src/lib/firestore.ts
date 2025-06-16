@@ -344,7 +344,9 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     subject_id: subjectId,
     title: data.title,
     type: data.type,
-    // is_locked is omitted to use DB default (true) as specified in SQL schema
+    // is_locked will use the database default (true) if not provided here.
+    // If you want to explicitly set it from the form:
+    // is_locked: data.isLocked !== undefined ? data.isLocked : true,
   };
 
   if (data.order !== undefined && data.order !== null) {
@@ -352,6 +354,8 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
   } else {
     sectionDataToInsert.order = null; // Explicitly set to null if not provided or null
   }
+  // The 'id' column is database-generated (either bigint identity or uuid with default)
+  // So we don't provide it in the insert statement.
   console.info("Attempting to insert into subject_sections (DB-generated ID):", JSON.stringify(sectionDataToInsert, null, 2));
 
   const { data: insertedData, error } = await supabase
@@ -416,12 +420,11 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
 export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
 
 export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => {
-  // subjectId is not strictly needed if sectionId is the unique primary key,
-  // but it's good practice to include it if RLS policies might depend on it.
   const { error } = await supabase
     .from('subject_sections')
     .delete()
-    .eq('id', sectionId); // Assuming 'id' is the primary key of subject_sections
+    .eq('id', sectionId) // Assuming 'id' is the primary key and is UUID
+    .eq('subject_id', subjectId); // Optional: for RLS or added safety if 'id' isn't globally unique across subjects
 
   if (error) {
     console.error(`Supabase error deleting section ${sectionId} for subject ${subjectId}:`, error);
@@ -431,7 +434,40 @@ export const deleteSubjectSection = async (subjectId: string, sectionId: string)
 
 // --- Lessons ---
 export const addLesson = async (subjectId: string, sectionId: string, data: Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addLesson"); };
-export const getLessonsInSection = async (subjectId: string, sectionId: string): Promise<Lesson[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonsInSection"); };
+
+export const getLessonsInSection = async (subjectId: string, sectionId: string): Promise<Lesson[]> => {
+  const { data, error } = await supabase
+    .from('lessons')
+    .select('*')
+    .eq('section_id', sectionId)
+    // .eq('subject_id', subjectId) // Optional: if section_id is not globally unique
+    .order('order', { ascending: true, nullsLast: true })
+    .order('title', { ascending: true });
+
+  if (error) {
+    console.error(`Supabase error fetching lessons for section ${sectionId}:`, error);
+    throw error;
+  }
+  if (!data) return [];
+
+  return data.map((lesson: any) => ({
+    id: String(lesson.id), // Ensure ID is string
+    subjectId: lesson.subject_id,
+    sectionId: lesson.section_id,
+    title: lesson.title,
+    videoUrl: lesson.video_url,
+    content: lesson.content,
+    teachers: lesson.teachers || [],
+    files: lesson.files || [],
+    order: lesson.order,
+    isLocked: lesson.is_locked,
+    linkedExamIds: lesson.linked_exam_ids || [],
+    notes: lesson.notes,
+    created_at: lesson.created_at,
+    updated_at: lesson.updated_at,
+    // questions: [] // Questions are fetched separately
+  })) as Lesson[];
+};
 export const getLessonById = async (subjectId: string, sectionId: string, lessonId: string): Promise<Lesson | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonById"); };
 export const updateLesson = async (subjectId: string, sectionId: string, lessonId: string, data: Partial<Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateLesson"); };
 export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
