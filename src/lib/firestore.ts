@@ -114,7 +114,7 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
 export const deleteSubject = async (subjectId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubject"); };
 export const getSubjectById = async (id: string): Promise<Subject | null> => {
    const { data, error } = await supabase.from('subjects').select('*').eq('id', id).single();
-   if (error && error.code !== 'PGRST116') throw error;
+   if (error && error.code !== 'PGRST116') throw error; // Allow 'PGRST116' (single row not found)
    if (!data) return null;
    return {
      ...data,
@@ -338,21 +338,26 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 
 // --- Subject Sections ---
 // Assumes the 'id' column in 'subject_sections' is UUID and DB-generated (e.g., default gen_random_uuid())
+// Compatible with bigint or uuid for 'id' column if DB generates it.
 export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons' | 'isLocked'>): Promise<string> => {
   const sectionDataToInsert: any = {
     subject_id: subjectId,
     title: data.title,
     type: data.type,
-    order: data.order ?? null,
     // is_locked is omitted to use DB default (true) as specified in SQL schema
   };
 
-  console.info("Attempting to insert into subject_sections:", JSON.stringify(sectionDataToInsert, null, 2));
+  if (data.order !== undefined && data.order !== null) {
+    sectionDataToInsert.order = data.order;
+  } else {
+    sectionDataToInsert.order = null; // Explicitly set to null if not provided or null
+  }
+  console.info("Attempting to insert into subject_sections (DB-generated ID):", JSON.stringify(sectionDataToInsert, null, 2));
 
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('id') // Select the auto-generated 'id' (uuid)
+    .select('id') // Select the auto-generated 'id'
     .single();
 
   if (error) {
@@ -377,8 +382,7 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     console.error("Supabase addSubjectSection did not return the expected 'id'. Response:", insertedData);
     throw new Error("Failed to add subject section: No 'id' returned from database or unexpected response.");
   }
-
-  return String(insertedData.id); // Return the new section's ID (UUID string)
+  return String(insertedData.id); // Return the new section's ID (stringified bigint or uuid string)
 };
 
 
@@ -391,14 +395,14 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
     .order('title', { ascending: true });
 
   if (error) {
-    console.info(`Supabase error fetching sections for subject ${subjectId} - details follow:`);
+    console.info(`Supabase error fetching sections for subject ${subjectId} (raw object follows):`);
     console.error(error);
     throw error;
   }
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: String(section.id), // section.id will be a UUID string from Supabase
+    id: String(section.id), // section.id will be stringified bigint or uuid string from Supabase
     subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
@@ -410,7 +414,20 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
   })) as SubjectSection[];
 };
 export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
-export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubjectSection"); };
+
+export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => {
+  // subjectId is not strictly needed if sectionId is the unique primary key,
+  // but it's good practice to include it if RLS policies might depend on it.
+  const { error } = await supabase
+    .from('subject_sections')
+    .delete()
+    .eq('id', sectionId); // Assuming 'id' is the primary key of subject_sections
+
+  if (error) {
+    console.error(`Supabase error deleting section ${sectionId} for subject ${subjectId}:`, error);
+    throw error;
+  }
+};
 
 // --- Lessons ---
 export const addLesson = async (subjectId: string, sectionId: string, data: Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addLesson"); };
