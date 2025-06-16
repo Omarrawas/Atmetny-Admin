@@ -343,31 +343,30 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 };
 
 // --- Subject Sections ---
-// Assumes the 'id' column in 'subject_sections' is UUID and DB-generated (e.g., default gen_random_uuid())
 export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons' | 'isLocked'>): Promise<string> => {
-  // `id` will be database-generated (UUID)
+  // `id` (UUID) will be DB-generated for subject_sections table.
   const sectionDataToInsert: any = {
     subject_id: subjectId,
     title: data.title,
     type: data.type,
-    // is_locked will use the database default (true) if not provided or explicitly set in data
   };
 
   if (data.order !== undefined && data.order !== null) {
     sectionDataToInsert.order = data.order;
   } else {
-    sectionDataToInsert.order = null;
+    sectionDataToInsert.order = null; // Explicitly set to null if undefined or null
   }
-   if (data.isLocked !== undefined) {
+  // is_locked will default to true in the DB if not provided or explicitly set
+  if (data.isLocked !== undefined) {
     sectionDataToInsert.is_locked = data.isLocked;
   }
-  // Note: 'id' is not provided for insertion, relying on DB to generate UUID.
+
   console.info("Attempting to insert into subject_sections (DB-generated UUID for id):", JSON.stringify(sectionDataToInsert, null, 2));
 
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('id') // Select the auto-generated 'id'
+    .select('id')
     .single();
 
   if (error) {
@@ -392,7 +391,7 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     console.error("Supabase addSubjectSection did not return the expected 'id'. Response:", insertedData);
     throw new Error("Failed to add subject section: No 'id' returned from database or unexpected response.");
   }
-  return String(insertedData.id); // Return the new section's ID (UUID string)
+  return String(insertedData.id);
 };
 
 
@@ -412,7 +411,7 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: String(section.id), // section.id will be string (UUID from Supabase)
+    id: String(section.id),
     subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
@@ -420,7 +419,6 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
     isLocked: section.is_locked,
     created_at: section.created_at,
     updated_at: section.updated_at,
-    // lessons: [], // Lessons are fetched separately
   })) as SubjectSection[];
 };
 export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
@@ -429,8 +427,7 @@ export const deleteSubjectSection = async (subjectId: string, sectionId: string)
   const { error } = await supabase
     .from('subject_sections')
     .delete()
-    .eq('id', sectionId); // 'id' is UUID and primary key
-    // .eq('subject_id', subjectId); // This can be an additional check for RLS or safety if needed
+    .eq('id', sectionId);
 
   if (error) {
     console.error(`Supabase error deleting section ${sectionId} (for subject ${subjectId}):`, error);
@@ -441,7 +438,6 @@ export const deleteSubjectSection = async (subjectId: string, sectionId: string)
 
 // --- Lessons ---
 export const addLesson = async (subjectId: string, sectionId: string, data: Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>): Promise<string> => {
-  // `id` will be database-generated (UUID for lessons table)
   const lessonDataToInsert = {
     subject_id: subjectId,
     section_id: sectionId,
@@ -469,7 +465,7 @@ export const addLesson = async (subjectId: string, sectionId: string, data: Omit
   if (!insertedData || !insertedData.id) {
     throw new Error("Failed to add lesson: No ID returned from database.");
   }
-  return String(insertedData.id); // Return the new lesson's ID (UUID string)
+  return String(insertedData.id);
 };
 
 
@@ -478,7 +474,7 @@ export const getLessonsInSection = async (subjectId: string, sectionId: string):
     .from('lessons')
     .select('*')
     .eq('section_id', sectionId)
-    // .eq('subject_id', subjectId) // Optional: if section_id is not globally unique, though PK should make it so.
+    // .eq('subject_id', subjectId) // Optional: if section_id is not globally unique
     .order('order', { ascending: true, nullsLast: true })
     .order('title', { ascending: true });
 
@@ -489,7 +485,7 @@ export const getLessonsInSection = async (subjectId: string, sectionId: string):
   if (!data) return [];
 
   return data.map((lesson: any) => ({
-    id: String(lesson.id), // Ensure ID is string
+    id: String(lesson.id),
     subjectId: lesson.subject_id,
     sectionId: lesson.section_id,
     title: lesson.title,
@@ -503,7 +499,6 @@ export const getLessonsInSection = async (subjectId: string, sectionId: string):
     notes: lesson.notes,
     created_at: lesson.created_at,
     updated_at: lesson.updated_at,
-    // questions: [] // Questions are fetched separately
   })) as Lesson[];
 };
 export const getLessonById = async (subjectId: string, sectionId: string, lessonId: string): Promise<Lesson | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonById"); };
@@ -617,7 +612,65 @@ export const updateTeacherSubjects = async (teacherId: string, subjectId: string
 };
 
 // --- Questions for Lesson ---
-export const getQuestionsForLesson = async (lessonId: string): Promise<Question[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getQuestionsForLesson"); };
+export const getQuestionsForLesson = async (lessonId: string): Promise<Question[]> => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('created_at', { ascending: true }); // Or any other relevant order
+
+  if (error) {
+    console.error(`Supabase error fetching questions for lesson ${lessonId}:`, error);
+    throw error;
+  }
+  if (!data) return [];
+
+  // Reuse the mapping logic from getQuestions
+  return data.map((q: any) => {
+    const baseQuestion = {
+      id: String(q.id),
+      questionType: q.question_type as QuestionType,
+      questionText: q.question_text,
+      difficulty: q.difficulty as 'easy' | 'medium' | 'hard',
+      subjectId: q.subject_id,
+      lessonId: q.lesson_id,
+      tagIds: q.tag_ids || [],
+      isSane: q.is_sane,
+      sanityExplanation: q.sanity_explanation,
+      isLocked: q.is_locked,
+      created_at: q.created_at,
+      updated_at: q.updated_at,
+    };
+
+    switch (q.question_type as QuestionType) {
+      case 'mcq':
+        return {
+          ...baseQuestion,
+          options: q.options as Option[],
+          correctOptionId: q.correct_option_id,
+        } as MCQQuestion;
+      case 'true_false':
+        return {
+          ...baseQuestion,
+          options: q.options as Option[] || [{id: 'true', text: 'صحيح'}, {id: 'false', text: 'خطأ'}],
+          correctOptionId: q.correct_option_id as 'true' | 'false',
+        } as TrueFalseQuestion;
+      case 'fill_in_the_blanks':
+        return {
+          ...baseQuestion,
+          correctAnswers: q.correct_answers as string[],
+        } as FillInTheBlanksQuestion;
+      case 'short_answer':
+        return {
+          ...baseQuestion,
+          modelAnswer: q.model_answer,
+        } as ShortAnswerQuestion;
+      default:
+        console.warn(`Unknown question type encountered: ${q.question_type} for question ID: ${q.id}`);
+        return { ...baseQuestion } as Question; // Fallback to BaseQuestion
+    }
+  });
+};
 export const unlinkQuestionFromLesson = async (questionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": unlinkQuestionFromLesson"); };
 export const getSubjectNameById = async (subjectId: string): Promise<string | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectNameById"); };
 
