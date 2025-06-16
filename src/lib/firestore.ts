@@ -40,7 +40,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    dbData.order = null;
+    dbData.order = null; // Explicitly set to null if not provided or empty
   }
 
   const { data: newSubject, error } = await supabase
@@ -50,18 +50,19 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
     .single();
 
   if (error) {
-    console.error("Raw Supabase error object in addSubject:", error);
+    console.info("Supabase error details for addSubject will follow on the next line(s).");
+    console.error(error);
     try {
       console.error("Stringified Supabase error in addSubject:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
       console.error("Could not stringify Supabase error in addSubject:", e);
     }
-    console.error("Parsed Supabase error details in addSubject:", {
+    console.error("Parsed Supabase error details in addSubject (if available):", {
       message: (error as any).message,
       details: (error as any).details,
       hint: (error as any).hint,
       code: (error as any).code,
-      status: (error as any).status, // Added status
+      status: (error as any).status,
     });
     throw error;
   }
@@ -336,15 +337,15 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 
 // --- Subject Sections ---
 export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'isLocked'>): Promise<string> => {
-  const newSectionUUID = uuidv4();
+  const newSectionUUID = uuidv4(); // Generate UUID client-side for the primary key
 
   const sectionDataToInsert: any = {
-    section_id: newSectionUUID,
+    section_id: newSectionUUID, // Use 'section_id' as per your database schema
     subject_id: subjectId,
     title: data.title,
     type: data.type,
     order: data.order ?? null,
-    // is_locked defaults to true in DB as per types/supabase.ts (assuming your DB schema matches)
+    // is_locked: data.isLocked // Let DB default handle this or set explicitly if needed
   };
 
   console.log("Attempting to insert into subject_sections:", JSON.stringify(sectionDataToInsert, null, 2));
@@ -352,12 +353,12 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('section_id') // Assuming 'section_id' is the PK you want returned
+    .select('section_id') // Select the same column name used for insertion
     .single();
 
   if (error) {
-    console.info("Supabase error details for addSubjectSection will follow on the next line(s)."); // Changed to console.info and rephrased
-    console.error(error);
+    console.info("Supabase error details for addSubjectSection will follow on the next line(s).");
+    console.error(error); 
     try {
       console.error("Stringified Supabase error in addSubjectSection:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -381,16 +382,18 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
   return insertedData.section_id;
 };
 
+
 export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => {
   const { data, error } = await supabase
     .from('subject_sections')
-    .select('section_id, subject_id, title, type, order, is_locked, created_at, updated_at') // Explicitly select columns
+    .select('section_id, subject_id, title, type, order, is_locked, created_at, updated_at') // Ensure column names match DB
     .eq('subject_id', subjectId)
     .order('order', { ascending: true, nullsLast: true })
     .order('title', { ascending: true });
 
   if (error) {
-    console.error(`Supabase error fetching sections for subject ${subjectId}:`, error);
+    console.error(`Supabase error fetching sections for subject ${subjectId}. Raw error object follows:`);
+    console.error(error); // Log the raw error object
     throw error;
   }
   if (!data) return [];
@@ -401,7 +404,7 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
     title: section.title,
     type: section.type as 'theory' | 'practical',
     order: section.order,
-    isLocked: section.is_locked, // Assuming is_locked is the column name
+    isLocked: section.is_locked,
     created_at: section.created_at,
     updated_at: section.updated_at,
   })) as SubjectSection[];
@@ -608,4 +611,5 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
     
+
 
