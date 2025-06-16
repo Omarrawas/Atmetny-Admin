@@ -27,7 +27,7 @@ export const convertTimestampsToDates = (data: any[]): any[] => {
 
 
 // --- Subjects ---
-export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>): Promise<string> => {
   const dbData: any = {
     name: data.name,
     description: data.description || null,
@@ -40,7 +40,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    dbData.order = null; // Explicitly set to null if not provided or empty
+    dbData.order = null; 
   }
 
   const { data: newSubject, error } = await supabase
@@ -86,6 +86,7 @@ export const getSubjects = async (): Promise<Subject[]> => {
   }
   return (data?.map(s => ({
     ...s,
+    id: String(s.id), // Ensure ID is string
     iconName: s.icon_name,
     imageHint: s.image_hint,
     createdAt: s.created_at,
@@ -93,16 +94,18 @@ export const getSubjects = async (): Promise<Subject[]> => {
   })) as Subject[]) || [];
 };
 
-export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
-  const dbData: any = {...data};
-  if (data.iconName !== undefined) { dbData.icon_name = data.iconName; delete dbData.iconName; }
-  if (data.imageHint !== undefined) { dbData.image_hint = data.imageHint; delete dbData.imageHint; }
+export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>>): Promise<void> => {
+  const dbData: any = {};
+  if (data.name !== undefined) dbData.name = data.name;
+  if (data.description !== undefined) dbData.description = data.description;
+  if (data.branch !== undefined) dbData.branch = data.branch;
+  if (data.image !== undefined) dbData.image = data.image;
+  if (data.iconName !== undefined) dbData.icon_name = data.iconName;
+  if (data.imageHint !== undefined) dbData.image_hint = data.imageHint;
   if (data.order !== undefined) {
     dbData.order = data.order;
   } else if (data.hasOwnProperty('order') && data.order === null) {
     dbData.order = null;
-  } else {
-    delete dbData.order;
   }
 
   const { error } = await supabase.from('subjects').update(dbData).eq('id', id);
@@ -115,6 +118,7 @@ export const getSubjectById = async (id: string): Promise<Subject | null> => {
    if (!data) return null;
    return {
      ...data,
+     id: String(data.id), // Ensure ID is string
      iconName: data.icon_name,
      imageHint: data.image_hint,
      createdAt: data.created_at,
@@ -139,7 +143,7 @@ export const getQuestions = async (): Promise<Question[]> => {
 
   return data.map((q: any) => {
     const baseQuestion = {
-      id: q.id,
+      id: String(q.id), // Ensure ID is string
       questionType: q.question_type as QuestionType,
       questionText: q.question_text,
       difficulty: q.difficulty as 'easy' | 'medium' | 'hard',
@@ -151,26 +155,25 @@ export const getQuestions = async (): Promise<Question[]> => {
       isLocked: q.is_locked,
       created_at: q.created_at,
       updated_at: q.updated_at,
-      // Map other common fields from q to baseQuestion
     };
 
     switch (q.question_type as QuestionType) {
       case 'mcq':
         return {
           ...baseQuestion,
-          options: q.options as Option[], // Assuming options is JSONB in DB
+          options: q.options as Option[], 
           correctOptionId: q.correct_option_id,
         } as MCQQuestion;
       case 'true_false':
         return {
           ...baseQuestion,
-          options: q.options as Option[] || [{id: 'true', text: 'صحيح'}, {id: 'false', text: 'خطأ'}], // Ensure options exist for true/false
+          options: q.options as Option[] || [{id: 'true', text: 'صحيح'}, {id: 'false', text: 'خطأ'}],
           correctOptionId: q.correct_option_id as 'true' | 'false',
         } as TrueFalseQuestion;
       case 'fill_in_the_blanks':
         return {
           ...baseQuestion,
-          correctAnswers: q.correct_answers as string[], // Assuming correct_answers is text[]
+          correctAnswers: q.correct_answers as string[], 
         } as FillInTheBlanksQuestion;
       case 'short_answer':
         return {
@@ -178,9 +181,8 @@ export const getQuestions = async (): Promise<Question[]> => {
           modelAnswer: q.model_answer,
         } as ShortAnswerQuestion;
       default:
-        // Fallback or handle unknown type
         console.warn(`Unknown question type encountered: ${q.question_type} for question ID: ${q.id}`);
-        return { ...baseQuestion } as Question; // Return base question or a specific default
+        return { ...baseQuestion } as Question; 
     }
   });
 };
@@ -204,7 +206,7 @@ export const getExams = async (): Promise<Exam[]> => {
   if (!data) return [];
 
   return data.map((exam: any) => ({
-    id: exam.id,
+    id: String(exam.id), // Ensure ID is string
     title: exam.title,
     description: exam.description,
     subjectId: exam.subject_id,
@@ -214,8 +216,8 @@ export const getExams = async (): Promise<Exam[]> => {
     imageHint: exam.image_hint,
     teacherName: exam.teacher_name,
     teacherId: exam.teacher_id,
-    durationInMinutes: exam.duration, // Map 'duration' from DB to 'durationInMinutes'
-    duration: exam.duration, // Also keep 'duration' if your type might use it
+    durationInMinutes: exam.duration, 
+    duration: exam.duration, 
     created_at: exam.created_at,
     updated_at: exam.updated_at,
   })) as Exam[];
@@ -240,7 +242,7 @@ export const getNewsArticles = async (): Promise<NewsArticle[]> => {
   if (!data) return [];
 
   return data.map((article: any) => ({
-    id: article.id,
+    id: String(article.id), // Ensure ID is string
     title: article.title,
     content: article.content,
     imageUrl: article.image_url,
@@ -255,7 +257,9 @@ export const getNewsArticleById = async (id: string): Promise<NewsArticle | null
 // --- Activation Codes (QR Codes) ---
 export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
   const dbData = {
-    ...data,
+    name: data.name,
+    encoded_value: data.encodedValue,
+    type: data.type,
     subject_id: data.subjectId,
     subject_name: data.subjectName,
     valid_from: data.validFrom,
@@ -264,19 +268,16 @@ export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' |
     is_used: data.isUsed,
     used_at: data.usedAt,
     used_by_user_id: data.usedByUserId,
-    encoded_value: data.encodedValue,
   };
-  // @ts-ignore
-  delete dbData.subjectId; delete dbData.subjectName; delete dbData.validFrom; delete dbData.validUntil; delete dbData.isActive; delete dbData.isUsed; delete dbData.usedAt; delete dbData.usedByUserId;
 
-  const { data: newCode, error } = await supabase.from('activation_codes').insert(dbData).select().single();
-  if (error) throw error; return newCode.id;
+  const { data: newCode, error } = await supabase.from('activation_codes').insert(dbData).select('id').single();
+  if (error) throw error; return String(newCode.id);
 };
 export const getAccessCodes = async (): Promise<AccessCode[]> => {
   const { data, error } = await supabase.from('activation_codes').select('*');
   if (error) throw error;
   return (data?.map(ac => ({
-    id: ac.id,
+    id: String(ac.id), // Ensure ID is string
     name: ac.name,
     encodedValue: ac.encoded_value,
     type: ac.type as AccessCodeType,
@@ -318,7 +319,7 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
   if (error && error.code !== 'PGRST116') throw error;
   if (!ac) return null;
   return {
-    id: ac.id,
+    id: String(ac.id), // Ensure ID is string
     name: ac.name,
     encodedValue: ac.encoded_value,
     type: ac.type as AccessCodeType,
@@ -336,24 +337,29 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 };
 
 // --- Subject Sections ---
-export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'isLocked'>): Promise<string> => {
-  const newSectionUUID = uuidv4(); // Generate UUID client-side for the primary key
-
+// The 'data' parameter type omits fields that are auto-generated or managed elsewhere (like 'lessons')
+// or handled by DB defaults (like 'isLocked' if not explicitly passed).
+export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons' | 'isLocked'>): Promise<string> => {
   const sectionDataToInsert: any = {
-    section_id: newSectionUUID, // Use 'section_id' as per your database schema
-    subject_id: subjectId,
+    subject_id: subjectId, // This is the foreign key to the subjects table
     title: data.title,
     type: data.type,
     order: data.order ?? null,
-    // is_locked: data.isLocked // Let DB default handle this or set explicitly if needed
+    // is_locked will use the database default (true) as it's omitted from input type and not set here
   };
 
-  console.log("Attempting to insert into subject_sections:", JSON.stringify(sectionDataToInsert, null, 2));
+  // If you wanted to allow setting is_locked from the form, you'd include it in the Omit type
+  // and handle it here:
+  // if (data.isLocked !== undefined) {
+  //   sectionDataToInsert.is_locked = data.isLocked;
+  // }
+
+  console.info("Attempting to insert into subject_sections:", JSON.stringify(sectionDataToInsert, null, 2));
 
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('section_id') // Select the same column name used for insertion
+    .select('id') // Select the auto-generated 'id' (bigint)
     .single();
 
   if (error) {
@@ -374,55 +380,57 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     throw error;
   }
 
-  if (!insertedData || !insertedData.section_id) {
-    console.error("Supabase addSubjectSection did not return the expected 'section_id'. Response:", insertedData);
-    throw new Error("Failed to add subject section: No 'section_id' returned from database or unexpected response.");
+  if (!insertedData || insertedData.id === null || insertedData.id === undefined) {
+    console.error("Supabase addSubjectSection did not return the expected 'id'. Response:", insertedData);
+    throw new Error("Failed to add subject section: No 'id' returned from database or unexpected response.");
   }
 
-  return insertedData.section_id;
+  return String(insertedData.id); // Return the new section's ID as a string
 };
 
 
 export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => {
   const { data, error } = await supabase
     .from('subject_sections')
-    .select('section_id, subject_id, title, type, order, is_locked, created_at, updated_at') // Ensure column names match DB
+    // Select all columns as defined in your SQL schema for subject_sections
+    .select('id, subject_id, title, type, order, is_locked, created_at, updated_at')
     .eq('subject_id', subjectId)
-    .order('order', { ascending: true, nullsLast: true })
+    .order('order', { ascending: true, nullsLast: true }) // Ensure sections are ordered
     .order('title', { ascending: true });
 
   if (error) {
-    console.error(`Supabase error fetching sections for subject ${subjectId}. Raw error object follows:`);
-    console.error(error); // Log the raw error object
+    console.error(`Supabase error fetching sections for subject ${subjectId}:`);
+    console.error(error); // Log the raw error object for better inspection
     throw error;
   }
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: section.section_id, // Map section_id from DB to id in TS type
-    subjectId: section.subject_id,
+    id: String(section.id), // Map DB 'id' (bigint) to TS 'id' (string)
+    subjectId: section.subject_id, // This is the FK
     title: section.title,
     type: section.type as 'theory' | 'practical',
     order: section.order,
     isLocked: section.is_locked,
     created_at: section.created_at,
     updated_at: section.updated_at,
+    // lessons array is populated client-side or via separate fetches, not part of this table's direct data
   })) as SubjectSection[];
 };
-export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
+export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
 export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteSubjectSection"); };
 
 // --- Lessons ---
-export const addLesson = async (subjectId: string, sectionId: string, data: Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addLesson"); };
+export const addLesson = async (subjectId: string, sectionId: string, data: Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addLesson"); };
 export const getLessonsInSection = async (subjectId: string, sectionId: string): Promise<Lesson[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonsInSection"); };
 export const getLessonById = async (subjectId: string, sectionId: string, lessonId: string): Promise<Lesson | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonById"); };
-export const updateLesson = async (subjectId: string, sectionId: string, lessonId: string, data: Partial<Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateLesson"); };
+export const updateLesson = async (subjectId: string, sectionId: string, lessonId: string, data: Partial<Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateLesson"); };
 export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
 
 // --- Users (Profiles) ---
 const mapDbProfileToUserProfile = (dbProfile: any): UserProfile => {
   return {
-    id: dbProfile.id,
+    id: String(dbProfile.id), // Ensure ID is string
     email: dbProfile.email,
     name: dbProfile.name,
     avatar_url: dbProfile.avatar_url,
@@ -439,7 +447,7 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile => {
     active_subscription: dbProfile.active_subscription,
     role: dbProfile.role as UserProfile['role'],
     youtube_channel_url: dbProfile.youtube_channel_url,
-    subjects_taught_id: dbProfile.subjects_taught_ids, // Map DB 'subjects_taught_ids' to TS 'subjects_taught_id'
+    subjects_taught_id: dbProfile.subjects_taught_ids, 
     created_at: dbProfile.created_at,
     updated_at: dbProfile.updated_at,
   };
@@ -450,7 +458,7 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; // Map TS 'subjects_taught_id' to DB 'subjects_taught_ids'
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; 
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -478,7 +486,7 @@ export const getUsers = async (): Promise<UserProfile[]> => {
 
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error for .single()
+  if (error && error.code !== 'PGRST116') { 
     console.error("Supabase error fetching user by email:", error);
     throw error;
   }
@@ -515,7 +523,7 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
 export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
   const { error } = await supabase
     .from('profiles')
-    .update({ subjects_taught_ids: subjectId }) // Ensure this column name matches your DB
+    .update({ subjects_taught_ids: subjectId }) 
     .eq('id', teacherId)
     .eq('role', 'teacher');
 
@@ -532,9 +540,9 @@ export const getSubjectNameById = async (subjectId: string): Promise<string | nu
 
 // --- Tags ---
 export const addTag = async (data: Omit<Tag, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
-  const { data: newTag, error } = await supabase.from('tags').insert(data).select().single();
+  const { data: newTag, error } = await supabase.from('tags').insert(data).select('id').single();
   if (error) throw error;
-  return newTag.id;
+  return String(newTag.id); // Ensure ID is string
 };
 export const getTags = async (): Promise<Tag[]> => {
   const { data, error } = await supabase
@@ -548,6 +556,7 @@ export const getTags = async (): Promise<Tag[]> => {
   }
   return (data?.map(t => ({
     ...t,
+    id: String(t.id), // Ensure ID is string
     createdAt: t.created_at,
     updatedAt: t.updated_at,
   })) as Tag[]) || [];
@@ -611,5 +620,3 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
     
-
-
