@@ -111,10 +111,20 @@ export default function AddLessonQuestionForm({
       } catch (e) {
         console.error("Could not stringify Supabase error in AddLessonQuestionForm:", e);
       }
+      
+      let toastDescription = `فشلت إضافة السؤال.`;
+      if (error.message) {
+        if (error.message.toLowerCase().includes('failed to fetch')) {
+          toastDescription = `فشل في الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت وإعدادات Supabase الصحيحة. (تفاصيل: ${error.message})`;
+        } else {
+          toastDescription += ` (${error.message})`;
+        }
+      }
+
       toast({
         variant: "destructive",
-        title: "خطأ",
-        description: `فشلت إضافة السؤال. ${error.message ? `(${error.message})` : ''}`,
+        title: "خطأ في إضافة السؤال",
+        description: toastDescription,
       });
     } finally {
       setIsLoading(false);
