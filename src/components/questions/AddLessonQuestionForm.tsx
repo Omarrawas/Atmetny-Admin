@@ -1,3 +1,4 @@
+
 // src/components/questions/AddLessonQuestionForm.tsx
 "use client";
 
@@ -102,12 +103,18 @@ export default function AddLessonQuestionForm({
       });
       form.reset();
       onQuestionAdded?.();
-    } catch (error) {
-      console.error("Error adding question to lesson:", error);
+    } catch (error: any) {
+      console.error("Error adding question to lesson (raw object follows):");
+      console.error(error);
+      try {
+        console.error("Stringified Supabase error in AddLessonQuestionForm:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      } catch (e) {
+        console.error("Could not stringify Supabase error in AddLessonQuestionForm:", e);
+      }
       toast({
         variant: "destructive",
         title: "خطأ",
-        description: "فشلت إضافة السؤال.",
+        description: `فشلت إضافة السؤال. ${error.message ? `(${error.message})` : ''}`,
       });
     } finally {
       setIsLoading(false);
@@ -236,3 +243,4 @@ export default function AddLessonQuestionForm({
     </Card>
   );
 }
+
