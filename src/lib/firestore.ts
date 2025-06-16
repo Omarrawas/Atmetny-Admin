@@ -40,7 +40,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   if (data.order !== undefined && data.order !== null) {
     dbData.order = data.order;
   } else {
-    dbData.order = null; 
+    dbData.order = null;
   }
 
   const { data: newSubject, error } = await supabase
@@ -161,7 +161,7 @@ export const getQuestions = async (): Promise<Question[]> => {
       case 'mcq':
         return {
           ...baseQuestion,
-          options: q.options as Option[], 
+          options: q.options as Option[],
           correctOptionId: q.correct_option_id,
         } as MCQQuestion;
       case 'true_false':
@@ -173,7 +173,7 @@ export const getQuestions = async (): Promise<Question[]> => {
       case 'fill_in_the_blanks':
         return {
           ...baseQuestion,
-          correctAnswers: q.correct_answers as string[], 
+          correctAnswers: q.correct_answers as string[],
         } as FillInTheBlanksQuestion;
       case 'short_answer':
         return {
@@ -182,7 +182,7 @@ export const getQuestions = async (): Promise<Question[]> => {
         } as ShortAnswerQuestion;
       default:
         console.warn(`Unknown question type encountered: ${q.question_type} for question ID: ${q.id}`);
-        return { ...baseQuestion } as Question; 
+        return { ...baseQuestion } as Question;
     }
   });
 };
@@ -216,8 +216,8 @@ export const getExams = async (): Promise<Exam[]> => {
     imageHint: exam.image_hint,
     teacherName: exam.teacher_name,
     teacherId: exam.teacher_id,
-    durationInMinutes: exam.duration, 
-    duration: exam.duration, 
+    durationInMinutes: exam.duration,
+    duration: exam.duration,
     created_at: exam.created_at,
     updated_at: exam.updated_at,
   })) as Exam[];
@@ -337,34 +337,27 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
 };
 
 // --- Subject Sections ---
-// The 'data' parameter type omits fields that are auto-generated or managed elsewhere (like 'lessons')
-// or handled by DB defaults (like 'isLocked' if not explicitly passed).
+// Assumes the 'id' column in 'subject_sections' is UUID and DB-generated (e.g., default gen_random_uuid())
 export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons' | 'isLocked'>): Promise<string> => {
   const sectionDataToInsert: any = {
-    subject_id: subjectId, // This is the foreign key to the subjects table
+    subject_id: subjectId,
     title: data.title,
     type: data.type,
     order: data.order ?? null,
-    // is_locked will use the database default (true) as it's omitted from input type and not set here
+    // is_locked is omitted to use DB default (true) as specified in SQL schema
   };
-
-  // If you wanted to allow setting is_locked from the form, you'd include it in the Omit type
-  // and handle it here:
-  // if (data.isLocked !== undefined) {
-  //   sectionDataToInsert.is_locked = data.isLocked;
-  // }
 
   console.info("Attempting to insert into subject_sections:", JSON.stringify(sectionDataToInsert, null, 2));
 
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('id') // Select the auto-generated 'id' (bigint)
+    .select('id') // Select the auto-generated 'id' (uuid)
     .single();
 
   if (error) {
     console.info("Supabase error details for addSubjectSection will follow on the next line(s).");
-    console.error(error); 
+    console.error(error);
     try {
       console.error("Stringified Supabase error in addSubjectSection:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -385,36 +378,35 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     throw new Error("Failed to add subject section: No 'id' returned from database or unexpected response.");
   }
 
-  return String(insertedData.id); // Return the new section's ID as a string
+  return String(insertedData.id); // Return the new section's ID (UUID string)
 };
 
 
 export const getSubjectSections = async (subjectId: string): Promise<SubjectSection[]> => {
   const { data, error } = await supabase
     .from('subject_sections')
-    // Select all columns as defined in your SQL schema for subject_sections
     .select('id, subject_id, title, type, order, is_locked, created_at, updated_at')
     .eq('subject_id', subjectId)
-    .order('order', { ascending: true, nullsLast: true }) // Ensure sections are ordered
+    .order('order', { ascending: true, nullsLast: true })
     .order('title', { ascending: true });
 
   if (error) {
-    console.error(`Supabase error fetching sections for subject ${subjectId}:`);
-    console.error(error); // Log the raw error object for better inspection
+    console.info(`Supabase error fetching sections for subject ${subjectId} - details follow:`);
+    console.error(error);
     throw error;
   }
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: String(section.id), // Map DB 'id' (bigint) to TS 'id' (string)
-    subjectId: section.subject_id, // This is the FK
+    id: String(section.id), // section.id will be a UUID string from Supabase
+    subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
     order: section.order,
     isLocked: section.is_locked,
     created_at: section.created_at,
     updated_at: section.updated_at,
-    // lessons array is populated client-side or via separate fetches, not part of this table's direct data
+    // lessons: [], // Lessons are fetched separately
   })) as SubjectSection[];
 };
 export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
@@ -447,7 +439,7 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile => {
     active_subscription: dbProfile.active_subscription,
     role: dbProfile.role as UserProfile['role'],
     youtube_channel_url: dbProfile.youtube_channel_url,
-    subjects_taught_id: dbProfile.subjects_taught_ids, 
+    subjects_taught_id: dbProfile.subjects_taught_ids,
     created_at: dbProfile.created_at,
     updated_at: dbProfile.updated_at,
   };
@@ -458,7 +450,7 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id; 
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id;
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -486,7 +478,7 @@ export const getUsers = async (): Promise<UserProfile[]> => {
 
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') { 
+  if (error && error.code !== 'PGRST116') {
     console.error("Supabase error fetching user by email:", error);
     throw error;
   }
@@ -523,7 +515,7 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
 export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
   const { error } = await supabase
     .from('profiles')
-    .update({ subjects_taught_ids: subjectId }) 
+    .update({ subjects_taught_ids: subjectId })
     .eq('id', teacherId)
     .eq('role', 'teacher');
 
@@ -619,4 +611,5 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
     
