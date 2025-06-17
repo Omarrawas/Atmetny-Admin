@@ -76,14 +76,32 @@ export default function DashboardPage() {
           teachers: teachersData.length,
           users: usersData.length,
         });
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
+      } catch (error: any) {
+        console.error("Error fetching dashboard stats (raw object follows):");
+        console.error(error); 
+
+        if (error.message) console.error("Caught error message (from page):", error.message);
+        if (error.details) console.error("Caught error details (from page):", error.details);
+        if (error.hint) console.error("Caught error hint (from page):", error.hint);
+        if (error.code) console.error("Caught error code (from page):", error.code);
+        
+        try {
+            console.error("Stringified caught error (from page):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        } catch (e) {
+            console.error("Could not stringify caught error (from page):", e);
+        }
+
+        let toastMessage = "لم نتمكن من تحميل بيانات لوحة التحكم. يرجى المحاولة مرة أخرى.";
+        if (error.message) {
+            toastMessage += ` التفاصيل: ${error.message}`;
+        }
+
         toast({
           variant: "destructive",
           title: "خطأ في تحميل الإحصائيات",
-          description: "لم نتمكن من تحميل بيانات لوحة التحكم. يرجى المحاولة مرة أخرى.",
+          description: toastMessage,
         });
-        setStats(null); // Reset stats on error
+        setStats(null); 
       } finally {
         setIsLoadingStats(false);
       }
