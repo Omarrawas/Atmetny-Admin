@@ -251,6 +251,7 @@ export const getQuestions = async (): Promise<Question[]> => {
 
   return data.map((q: any) => mapDbQuestionToQuestionType(q)).filter(q => q !== null) as Question[];
 };
+
 export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
   const dbData: any = {};
 
@@ -261,12 +262,14 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
   if (data.subjectId !== undefined) dbData.subject_id = (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null;
   if (data.lessonId !== undefined) dbData.lesson_id = (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null;
   if (data.tagIds !== undefined) dbData.tag_ids = Array.isArray(data.tagIds) ? data.tagIds : [];
+  // Use hasOwnProperty to allow setting to null explicitly
   if (data.hasOwnProperty('isSane')) dbData.is_sane = data.isSane;
   if (data.hasOwnProperty('sanityExplanation')) dbData.sanity_explanation = data.sanityExplanation;
   if (data.isLocked !== undefined) dbData.is_locked = data.isLocked;
 
+  // Determine current question type for type-specific fields
+  // If data.questionType is provided, use it. Otherwise, fetch the existing question to find its type.
   const currentQuestionType = data.questionType || (await getQuestionById(id))?.questionType;
-
 
   if (currentQuestionType === 'mcq') {
     const mcqData = data as Partial<MCQQuestion>;
@@ -274,7 +277,7 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
     if (mcqData.correctOptionId !== undefined) dbData.correct_option_id = mcqData.correctOptionId;
   } else if (currentQuestionType === 'true_false') {
     const tfData = data as Partial<TrueFalseQuestion>;
-    if (tfData.options !== undefined) dbData.options = tfData.options;
+    if (tfData.options !== undefined) dbData.options = tfData.options; // Typically [{id:'true', text:'...'}, {id:'false', text:'...'}]
     if (tfData.correctOptionId !== undefined) dbData.correct_option_id = tfData.correctOptionId;
   } else if (currentQuestionType === 'fill_in_the_blanks') {
     const fitbData = data as Partial<FillInTheBlanksQuestion>;
@@ -286,7 +289,9 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
         dbData.model_answer = saData.modelAnswer === undefined || saData.modelAnswer === '' ? null : saData.modelAnswer;
     }
   }
-
+  // Note: If data.questionType changes, old type-specific fields (e.g., options from mcq when changing to true_false)
+  // are not automatically nulled out in the DB by this logic unless explicitly set to null in `data`.
+  // For a full type change, ensure `data` also nulls out fields of the previous type.
 
   if (Object.keys(dbData).length === 0) {
     console.warn("updateQuestion called with no data to update for id:", id);
@@ -300,7 +305,7 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
 
   if (error) {
     console.info(`Supabase error details for updateQuestion (ID: ${id}) will follow on the next line(s).`);
-    console.error(error);
+    console.error(error); // Log the raw error object
     try {
       console.error("Stringified Supabase error in updateQuestion:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -526,7 +531,27 @@ export const getExamById = async (id: string): Promise<Exam | null> => {
 };
 
 // --- News Articles ---
-export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addNewsArticle"); };
+export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+  const dbData = {
+    title: data.title,
+    content: data.content,
+    image_url: data.imageUrl || null,
+  };
+  const { data: newArticle, error } = await supabase
+    .from('news_articles')
+    .insert(dbData)
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error("Supabase error adding news article:", error);
+    throw error;
+  }
+  if (!newArticle || !newArticle.id) {
+    throw new Error("Failed to add news article: No ID returned from database.");
+  }
+  return String(newArticle.id);
+};
 
 export const getNewsArticles = async (): Promise<NewsArticle[]> => {
   const { data, error } = await supabase
@@ -1051,4 +1076,5 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
 
