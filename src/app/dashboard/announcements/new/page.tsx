@@ -72,12 +72,32 @@ export default function NewAnnouncementPage() {
         description: "تمت إضافة الإعلان الجديد بنجاح.",
       });
       router.push('/dashboard/announcements');
-    } catch (error) {
-      console.error("Error adding announcement:", error);
+    } catch (error: any) { // Catch as 'any' to inspect properties
+      console.error("Error adding announcement (raw object follows):");
+      console.error(error); // Log the raw error object
+
+      // Try to log Supabase-specific details if they exist on the error object
+      if (error.message) console.error("Caught error message (from page):", error.message);
+      if (error.details) console.error("Caught error details (from page):", error.details);
+      if (error.hint) console.error("Caught error hint (from page):", error.hint);
+      if (error.code) console.error("Caught error code (from page):", error.code);
+
+      // Attempt to stringify, which might reveal more if it's a complex object
+      try {
+        console.error("Stringified caught error (from page):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      } catch (e) {
+        console.error("Could not stringify caught error (from page):", e);
+      }
+      
+      let toastMessage = "فشلت إضافة الإعلان الجديد.";
+      if (error.message) {
+        toastMessage += ` التفاصيل: ${error.message}`;
+      }
+
       toast({
         variant: "destructive",
         title: "خطأ",
-        description: "فشلت إضافة الإعلان الجديد.",
+        description: toastMessage,
       });
     } finally {
       setIsLoading(false);
