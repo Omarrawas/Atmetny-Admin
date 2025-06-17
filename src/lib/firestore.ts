@@ -653,7 +653,10 @@ export const updateAccessCode = async (id: string, data: Partial<Omit<AccessCode
   if (data.usedByUserId !== undefined) dbData.used_by_user_id = data.usedByUserId;
 
   const { error } = await supabase.from('activation_codes').update(dbData).eq('id', id);
-  if (error) throw error;
+  if (error) {
+    console.error("Supabase error updating access code:", error);
+    throw error;
+  }
 };
 export const deleteAccessCode = async (id: string): Promise<void> => {
   const { error } = await supabase.from('activation_codes').delete().eq('id', id);
@@ -1139,5 +1142,6 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
 
 

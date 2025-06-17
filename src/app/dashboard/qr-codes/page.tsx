@@ -304,11 +304,27 @@ export default function QRCodesPage() {
       setSelectedCodeIds([]);
       fetchPageData();
     } catch (error: any) {
-      console.error("Error saving access code(s):", error);
+      console.error("Error saving access code(s) (raw object follows):");
+      console.error(error); // Log the raw error object
+      // Try to log Supabase-specific details if they exist on the error object
+      if (error.message) console.error("Caught error message (from page):", error.message);
+      if (error.details) console.error("Caught error details (from page):", error.details);
+      if (error.hint) console.error("Caught error hint (from page):", error.hint);
+      if (error.code) console.error("Caught error code (from page):", error.code);
+      try {
+        console.error("Stringified caught error (from page):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      } catch (e) {
+        console.error("Could not stringify caught error (from page):", e);
+      }
+
       if (error.message && error.message.includes(NOT_IMPLEMENTED_ERROR)) {
          toast({ variant: "destructive", title: "Function Not Implemented", description: "QR Code saving requires Supabase backend implementation." });
       } else {
-        toast({ variant: "destructive", title: "Error", description: "Failed to save access code(s)." });
+        let toastMessage = "Failed to save access code(s).";
+        if (error.message) {
+            toastMessage += ` التفاصيل: ${error.message}`;
+        }
+        toast({ variant: "destructive", title: "Error", description: toastMessage });
       }
     } finally {
       setIsSubmitting(false);
@@ -992,3 +1008,4 @@ const handlePrintSelected = () => {
     </div>
   );
 }
+
