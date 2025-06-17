@@ -2,7 +2,7 @@
 // src/components/questions/AddLessonQuestionForm.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -20,12 +20,12 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { addQuestion, getSubjectById, getTags } from '@/lib/firestore'; // Added getTags
+import { addQuestion, getSubjectById, getTags, addTag as createTagInDb } from '@/lib/firestore'; // Updated to use createTagInDb alias
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, TagsIcon } from 'lucide-react'; // Added TagsIcon
-import type { Option, Question, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, Tag } from '@/types'; // Added Tag
-import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
+import { PlusCircle, Trash2, Loader2, TagsIcon, Search } from 'lucide-react'; // Added Search icon
+import type { Option, Question, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, Tag } from '@/types';
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Schemas for different parts of the lesson question form
 const lessonOptionSchema = z.object({
@@ -40,8 +40,7 @@ const lessonCorrectAnswerSchema = z.object({
 const lessonBaseQuestionSchema = z.object({
   questionText: z.string().min(10, "نص السؤال يجب أن يكون 10 أحرف على الأقل."),
   difficulty: z.enum(['easy', 'medium', 'hard'], { required_error: "الرجاء اختيار مستوى الصعوبة." }),
-  tagIds: z.array(z.string()).optional().default([]), // Added tagIds
-  // subjectId and lessonId are passed as props, not part of form data directly
+  tagIds: z.array(z.string()).optional().default([]),
 });
 
 // Schema for Multiple Choice Questions (MCQ) within a lesson
@@ -94,6 +93,9 @@ export default function AddLessonQuestionForm({
   const [subjectName, setSubjectName] = useState<string | null>(null);
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [isFetchingTags, setIsFetchingTags] = useState(true);
+  const [newTagName, setNewTagName] = useState('');
+  const [isAddingNewTag, setIsAddingNewTag] = useState(false);
+  const [tagSearchTerm, setTagSearchTerm] = useState('');
   const { toast } = useToast();
 
   const form = useForm<LessonQuestionFormValues>({
@@ -102,7 +104,7 @@ export default function AddLessonQuestionForm({
       questionText: '',
       difficulty: 'medium',
       questionType: 'mcq',
-      tagIds: [], // Initialize tagIds
+      tagIds: [],
       // @ts-ignore
       options: [{ text: '' }, { text: '' }],
       // @ts-ignore
@@ -130,9 +132,21 @@ export default function AddLessonQuestionForm({
     name: "correctAnswers",
   });
 
+  const fetchTagsData = async () => {
+    setIsFetchingTags(true);
+    try {
+      const tags = await getTags();
+      setAvailableTags(tags);
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+      toast({ variant: "destructive", title: "خطأ في جلب التصنيفات" });
+    } finally {
+      setIsFetchingTags(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchInitialData = async () => {
-      setIsFetchingTags(true);
+    const fetchInitialSubjectData = async () => {
       if (subjectId) {
         try {
             const subjectData = await getSubjectById(subjectId);
@@ -142,17 +156,9 @@ export default function AddLessonQuestionForm({
             setSubjectName('خطأ في تحميل اسم المادة');
         }
       }
-      try {
-        const tags = await getTags();
-        setAvailableTags(tags);
-      } catch (error) {
-        console.error("Error fetching tags:", error);
-        toast({ variant: "destructive", title: "خطأ في جلب التصنيفات" });
-      } finally {
-        setIsFetchingTags(false);
-      }
     };
-    fetchInitialData();
+    fetchInitialSubjectData();
+    fetchTagsData();
   }, [subjectId, toast]);
 
   useEffect(() => {
@@ -200,6 +206,42 @@ export default function AddLessonQuestionForm({
       form.setValue('correctAnswers', undefined);
     }
   }, [watchedQuestionType, form]);
+
+  const handleAddNewTag = async () => {
+    const trimmedNewTagName = newTagName.trim();
+    if (!trimmedNewTagName) {
+      toast({ variant: 'destructive', title: 'اسم التصنيف فارغ', description: 'الرجاء إدخال اسم للتصنيف الجديد.' });
+      return;
+    }
+    if (availableTags.some(tag => tag.name.toLowerCase() === trimmedNewTagName.toLowerCase())) {
+      toast({ variant: 'destructive', title: 'تصنيف مكرر', description: 'يوجد تصنيف بهذا الاسم بالفعل.' });
+      return;
+    }
+    setIsAddingNewTag(true);
+    try {
+      const newTagId = await createTagInDb({ name: trimmedNewTagName });
+      const newTagObject: Tag = { id: newTagId, name: trimmedNewTagName, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      setAvailableTags(prev => [...prev, newTagObject]);
+      const currentSelectedTagIds = form.getValues("tagIds") || [];
+      form.setValue("tagIds", [...currentSelectedTagIds, newTagId]);
+      setNewTagName('');
+      toast({ title: "تم إضافة التصنيف", description: `تم إضافة التصنيف "${trimmedNewTagName}" واختياره.` });
+    } catch (error) {
+      console.error("Error adding new tag:", error);
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة التصنيف الجديد." });
+    } finally {
+      setIsAddingNewTag(false);
+    }
+  };
+
+  const filteredAvailableTags = useMemo(() => {
+    if (!tagSearchTerm.trim()) {
+      return availableTags;
+    }
+    return availableTags.filter(tag =>
+      tag.name.toLowerCase().includes(tagSearchTerm.toLowerCase())
+    );
+  }, [availableTags, tagSearchTerm]);
 
   const onSubmit = async (formData: LessonQuestionFormValues) => {
     setIsLoading(true);
@@ -545,19 +587,56 @@ export default function AddLessonQuestionForm({
                       التصنيفات (اختياري)
                     </FormLabel>
                   </div>
+                  <div className="flex items-end gap-2 mb-2">
+                    <div className="flex-grow">
+                      <Label htmlFor="new-tag-name-lesson-q" className="sr-only">اسم التصنيف الجديد</Label>
+                      <Input
+                        id="new-tag-name-lesson-q"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        placeholder="أو أضف تصنيفًا جديدًا..."
+                        className="text-sm h-8"
+                        disabled={isAddingNewTag}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddNewTag}
+                      disabled={isAddingNewTag || !newTagName.trim()}
+                      className="h-8"
+                    >
+                      {isAddingNewTag ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <PlusCircle className="mr-1 h-3.5 w-3.5" />}
+                      إضافة
+                    </Button>
+                  </div>
+                  <div className="relative mb-2">
+                    <Input
+                      type="text"
+                      placeholder="ابحث عن تصنيف..."
+                      value={tagSearchTerm}
+                      onChange={(e) => setTagSearchTerm(e.target.value)}
+                      className="text-sm h-8 pl-8 rtl:pr-8"
+                    />
+                    <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground rtl:right-2 rtl:left-auto" />
+                  </div>
+
                   {isFetchingTags ? (
                     <div className="flex items-center justify-center p-1">
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         <span className="ml-1 rtl:mr-1 text-xs text-muted-foreground">جاري تحميل التصنيفات...</span>
                     </div>
-                  ) : availableTags.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      لا توجد تصنيفات. أضف من <a href="/dashboard/tags" className="text-primary hover:underline">صفحة التصنيفات</a>.
+                  ) : filteredAvailableTags.length === 0 && !tagSearchTerm ? (
+                    <p className="text-xs text-muted-foreground text-center py-1">
+                      لا توجد تصنيفات. أضف تصنيفًا جديدًا أعلاه أو من <a href="/dashboard/tags" className="text-primary hover:underline">صفحة التصنيفات</a>.
                     </p>
+                  ) : filteredAvailableTags.length === 0 && tagSearchTerm ? (
+                     <p className="text-xs text-muted-foreground text-center py-1">لا توجد تصنيفات تطابق بحثك.</p>
                   ) : (
                     <ScrollArea className="h-28 rounded-md border p-2">
                       <div className="space-y-1">
-                        {availableTags.map((tag) => (
+                        {filteredAvailableTags.map((tag) => (
                           <FormField
                             key={tag.id}
                             control={form.control}
@@ -593,7 +672,7 @@ export default function AddLessonQuestionForm({
             <p className="text-xs text-muted-foreground">
               المادة: {subjectName || 'جاري التحميل...'} (سيتم ربط السؤال بهذه المادة والدرس الحالي).
             </p>
-            <Button type="submit" disabled={isLoading || isFetchingTags} size="sm">
+            <Button type="submit" disabled={isLoading || isFetchingTags || isAddingNewTag} size="sm">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
               إضافة السؤال للدرس
             </Button>
@@ -603,3 +682,4 @@ export default function AddLessonQuestionForm({
     </Card>
   );
 }
+
