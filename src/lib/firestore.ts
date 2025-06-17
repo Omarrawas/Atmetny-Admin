@@ -223,7 +223,7 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
 
   if (error) {
     console.info("Supabase error details for addQuestion will follow on the next line(s).");
-    console.error(error); 
+    console.error(error);
     try {
       console.error("Stringified Supabase error in addQuestion:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -322,12 +322,12 @@ export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at
   const examDbData: any = {
     title: data.title,
     description: data.description || null,
-    subject_id: data.subjectId,
+    subject_id: (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null,
     published: data.published || false,
     image: data.image || null,
     image_hint: data.imageHint || null,
     teacher_name: data.teacherName || null,
-    teacher_id: data.teacherId || null,
+    teacher_id: (typeof data.teacherId === 'string' && data.teacherId.trim() !== '') ? data.teacherId : null,
     duration: data.durationInMinutes ?? data.duration ?? null,
   };
 
@@ -407,12 +407,12 @@ export const updateExam = async (id: string, data: Partial<Omit<Exam, 'id' | 'cr
   const examDbData: any = {};
   if (data.title !== undefined) examDbData.title = data.title;
   if (data.hasOwnProperty('description')) examDbData.description = data.description;
-  if (data.subjectId !== undefined) examDbData.subject_id = data.subjectId;
+  if (data.subjectId !== undefined) examDbData.subject_id = (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null;
   if (data.published !== undefined) examDbData.published = data.published;
   if (data.hasOwnProperty('image')) examDbData.image = data.image;
   if (data.hasOwnProperty('imageHint')) examDbData.image_hint = data.imageHint;
   if (data.hasOwnProperty('teacherName')) examDbData.teacher_name = data.teacherName;
-  if (data.hasOwnProperty('teacherId')) examDbData.teacher_id = data.teacherId;
+  if (data.hasOwnProperty('teacherId')) examDbData.teacher_id = (typeof data.teacherId === 'string' && data.teacherId.trim() !== '') ? data.teacherId : null;
   if (data.durationInMinutes !== undefined) examDbData.duration = data.durationInMinutes;
   else if (data.duration !== undefined) examDbData.duration = data.duration;
 
@@ -648,7 +648,7 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
   } else {
     sectionDataToInsert.order = null;
   }
-  if (data.hasOwnProperty('isLocked')) { 
+  if (data.hasOwnProperty('isLocked')) {
       sectionDataToInsert.is_locked = data.isLocked;
   }
 
@@ -656,7 +656,7 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
     .insert(sectionDataToInsert)
-    .select('id') 
+    .select('id')
     .single();
 
   if (error) {
@@ -681,7 +681,7 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     console.error("Supabase addSubjectSection did not return the expected 'id'. Response:", insertedData);
     throw new Error("Failed to add subject section: No 'id' returned from database or unexpected response.");
   }
-  return String(insertedData.id); 
+  return String(insertedData.id);
 };
 
 
@@ -695,7 +695,7 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
 
   if (error) {
     console.info(`Supabase error details for getSubjectSections (subject: ${subjectId}) will follow on the next line(s).`);
-    console.error(error); 
+    console.error(error);
     try {
       console.error("Stringified Supabase error in getSubjectSections:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -706,7 +706,7 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: String(section.id), 
+    id: String(section.id),
     subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
@@ -722,7 +722,7 @@ export const deleteSubjectSection = async (subjectId: string, sectionId: string)
   const { error } = await supabase
     .from('subject_sections')
     .delete()
-    .eq('id', sectionId); 
+    .eq('id', sectionId);
 
   if (error) {
     console.error(`Supabase error deleting section ${sectionId} (for subject ${subjectId}):`, error);
@@ -739,18 +739,18 @@ export const addLesson = async (subjectId: string, sectionId: string, data: Omit
     title: data.title,
     video_url: data.videoUrl || null,
     content: data.content || null,
-    teachers: data.teachers && data.teachers.length > 0 ? data.teachers : null, 
-    files: data.files && data.files.length > 0 ? data.files : null, 
+    teachers: data.teachers && data.teachers.length > 0 ? data.teachers : null,
+    files: data.files && data.files.length > 0 ? data.files : null,
     order: (data.order !== undefined && data.order !== null) ? data.order : null,
-    is_locked: data.isLocked !== undefined ? data.isLocked : true, 
-    linked_exam_ids: data.linkedExamIds && data.linkedExamIds.length > 0 ? data.linkedExamIds : null, 
+    is_locked: data.isLocked !== undefined ? data.isLocked : true,
+    linked_exam_ids: data.linkedExamIds && data.linkedExamIds.length > 0 ? data.linkedExamIds : null,
     notes: data.notes || null,
   };
 
   const { data: insertedData, error } = await supabase
     .from('lessons')
     .insert(lessonDataToInsert)
-    .select('id') 
+    .select('id')
     .single();
 
   if (error) {
@@ -1005,3 +1005,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+

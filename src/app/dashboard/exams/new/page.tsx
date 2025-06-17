@@ -191,7 +191,7 @@ export default function NewExamPage() {
         subjectId: data.subjectId,
         // 'questionIds' here is the array of selected question IDs from the form
         // The addExam function in firestore.ts will handle creating entries in 'exam_questions'
-        questionIds: data.selectedQuestionIds, 
+        questionIds: data.selectedQuestionIds,
         published: data.published,
         image: data.image || null,
         imageHint: data.imageHint || null,
@@ -204,12 +204,17 @@ export default function NewExamPage() {
         description: "تمت إضافة الامتحان الجديد بنجاح.",
       });
       router.push('/dashboard/exams');
-    } catch (error) {
-      console.error("Error adding exam:", error);
+    } catch (error: any) {
+      console.error("Error adding exam (raw):", error);
+      try {
+        console.error("Error adding exam (stringified):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      } catch (e) {
+        console.error("Could not stringify error during exam addition:", e);
+      }
       toast({
         variant: "destructive",
         title: "خطأ",
-        description: "فشلت إضافة الامتحان الجديد.",
+        description: error.message || "فشلت إضافة الامتحان الجديد. تحقق من الكونسول لمزيد من التفاصيل.",
       });
     } finally {
       setIsLoading(false);
@@ -319,10 +324,10 @@ export default function NewExamPage() {
                       مدة الاختبار (بالدقائق)
                     </FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="مثال: 90" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        placeholder="مثال: 90"
+                        {...field}
                         value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
                         min="1"
