@@ -16,7 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { addLesson, getExams } from '@/lib/firestore';
-import { Loader2, PlusCircle, Trash2, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy } from 'lucide-react'; // Added Copy
 import type { LessonFile, LessonTeacher, Exam } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as UiDialogDescription, DialogFooter } from "@/components/ui/dialog"; // Renamed DialogDescription
@@ -107,12 +107,31 @@ export default function AddLessonForm({ subjectId, sectionId, onLessonAdded }: A
     name: "files",
   });
 
-  const insertEquationToQuill = () => {
-    toast({
-      title: "إدراج معادلة",
-      description: "الرجاء نسخ نص LaTeX من الأعلى ولصقه في المحرر الرئيسي محاطًا بـ $$ ... $$.",
-      duration: 5000,
-    });
+  const handleCopyFormattedEquation = async () => {
+    if (!currentEquation.trim()) {
+      toast({
+        variant: "destructive",
+        title: "المعادلة فارغة",
+        description: "الرجاء إدخال نص LaTeX للمعادلة أولاً.",
+      });
+      return;
+    }
+    const formattedEquation = `$$${currentEquation.trim()}$$`;
+    try {
+      await navigator.clipboard.writeText(formattedEquation);
+      toast({
+        title: "تم نسخ المعادلة",
+        description: "تم نسخ المعادلة بصيغة LaTeX ($$...$$). يمكنك الآن لصقها في حقل محتوى الدرس.",
+      });
+      setShowEquationModal(false); 
+    } catch (err) {
+      console.error("Failed to copy equation: ", err);
+      toast({
+        variant: "destructive",
+        title: "فشل النسخ",
+        description: "لم نتمكن من نسخ المعادلة إلى الحافظة. يمكنك نسخها يدويًا بالصيغة: $$معادلتك$$",
+      });
+    }
   };
 
 
@@ -477,7 +496,7 @@ export default function AddLessonForm({ subjectId, sectionId, onLessonAdded }: A
               <DialogHeader className="text-right">
                 <DialogTitle>إضافة معادلة LaTeX</DialogTitle>
                 <UiDialogDescription>
-                  أدخل صيغة LaTeX للمعادلة. سيتم عرض معاينة أدناه.
+                  أدخل صيغة LaTeX للمعادلة. سيتم عرض معاينة أدناه. انقر "نسخ" ثم الصقها في محرر محتوى الدرس.
                 </UiDialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-2">
@@ -497,8 +516,8 @@ export default function AddLessonForm({ subjectId, sectionId, onLessonAdded }: A
                 </div>
               </div>
               <DialogFooter className="flex-row-reverse">
-                 <Button onClick={insertEquationToQuill}>
-                    إدراج (عبر شريط الأدوات)
+                 <Button onClick={handleCopyFormattedEquation}>
+                    <Copy className="ml-2 h-4 w-4 rtl:mr-2 rtl:ml-0" /> نسخ المعادلة المنسقة
                  </Button>
                  <Button variant="outline" onClick={() => setShowEquationModal(false)}>
                   إغلاق
