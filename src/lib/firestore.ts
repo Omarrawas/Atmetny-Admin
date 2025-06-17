@@ -856,7 +856,7 @@ export const deleteLesson = async (subjectId: string, sectionId: string, lessonI
 // --- Users (Profiles) ---
 const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
   if (!dbProfile || !dbProfile.id) {
-    console.warn("[mapDbProfileToUserProfile] Skipping profile due to missing id. Profile data:", dbProfile);
+    console.warn("[mapDbProfileToUserProfile] Skipping a profile due to missing id. Profile data:", dbProfile);
     return null;
   }
   try {
@@ -876,9 +876,9 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
       university: dbProfile.university || null,
       major: dbProfile.major || null,
       active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null,
-      role: dbProfile.role as UserProfile['role'] || 'user', // Default to 'user' if null
+      role: dbProfile.role as UserProfile['role'] || 'user',
       youtube_channel_url: dbProfile.youtube_channel_url || null,
-      subjects_taught_id: dbProfile.subjects_taught_id || null, // Corrected to singular form
+      subjects_taught_ids: Array.isArray(dbProfile.subjects_taught_ids) ? dbProfile.subjects_taught_ids : (dbProfile.subjects_taught_ids ? [dbProfile.subjects_taught_ids] : null), // Handle array or single, and map from snake_case
       created_at: dbProfile.created_at,
       updated_at: dbProfile.updated_at,
     };
@@ -888,12 +888,18 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
   }
 };
 
+
 const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any => {
   const dbData: any = {};
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_id = userProfileData.subjects_taught_id; // Corrected field name
+  // Ensure subjects_taught_ids is handled as an array or null for Supabase
+  if (userProfileData.subjects_taught_ids !== undefined) {
+    dbData.subjects_taught_ids = Array.isArray(userProfileData.subjects_taught_ids) && userProfileData.subjects_taught_ids.length > 0 
+      ? userProfileData.subjects_taught_ids 
+      : null;
+  }
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -937,19 +943,8 @@ export const getUsers = async (): Promise<UserProfile[]> => {
       console.log(`[getUsers] Second item (if any): ${JSON.stringify(rawData[1], null, 2)}`);
   }
 
-
   const mappedProfiles = rawData.map(profile => {
-    // Moving the try-catch and null check inside the map for better individual error handling
-    if (!profile || !profile.id) {
-      console.warn("[getUsers -> map] Skipping a raw profile due to missing id. Profile data:", profile);
-      return null; // Will be filtered out
-    }
-    try {
-      return mapDbProfileToUserProfile(profile);
-    } catch (mapError) {
-      console.error("[getUsers -> map] Error mapping a raw profile. Profile data:", profile, "Error:", mapError);
-      return null; // Will be filtered out
-    }
+    return mapDbProfileToUserProfile(profile);
   }).filter(profile => profile !== null) as UserProfile[];
 
   console.log(`[getUsers] Mapped ${mappedProfiles.length} valid UserProfile object(s).`);
@@ -968,45 +963,114 @@ export const getUserByEmail = async (email: string): Promise<UserProfile | null>
 };
 
 export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
-  const dbData = mapUserProfileToDbProfile(data);
-  if (Object.keys(dbData).length === 0) {
-    console.warn("updateUser called with no data to update for id:", id);
-    return;
+  // For updating teacher subjects, we need a different approach due to the junction table.
+  // This function will handle non-subject updates.
+  // A separate function will handle teacher_subjects updates.
+
+  const profileDbData: any = {};
+  if (data.name !== undefined) profileDbData.name = data.name;
+  if (data.role !== undefined) profileDbData.role = data.role;
+  if (data.youtube_channel_url !== undefined) profileDbData.youtube_channel_url = data.youtube_channel_url;
+  // Add other non-array profile fields here
+
+  if (Object.keys(profileDbData).length > 0) {
+    const { error: profileError } = await supabase.from('profiles').update(profileDbData).eq('id', id);
+    if (profileError) {
+      console.error("Supabase error updating user profile:", profileError);
+      throw profileError;
+    }
   }
-  const { error } = await supabase.from('profiles').update(dbData).eq('id', id);
-  if (error) {
-    console.error("Supabase error updating user:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
-    throw error;
+
+  // Handle subjects_taught_ids by updating the teacher_subjects junction table
+  if (data.subjects_taught_ids !== undefined && data.role === 'teacher') {
+    // 1. Delete existing subject associations for this teacher
+    const { error: deleteError } = await supabase
+      .from('teacher_subjects')
+      .delete()
+      .eq('teacher_id', id);
+
+    if (deleteError) {
+      console.error("Supabase error deleting old teacher subject links:", deleteError);
+      throw deleteError;
+    }
+
+    // 2. Insert new subject associations if any
+    if (data.subjects_taught_ids && data.subjects_taught_ids.length > 0) {
+      const teacherSubjectsToInsert = data.subjects_taught_ids.map(subjectId => ({
+        teacher_id: id,
+        subject_id: subjectId,
+      }));
+      const { error: insertError } = await supabase
+        .from('teacher_subjects')
+        .insert(teacherSubjectsToInsert);
+      if (insertError) {
+        console.error("Supabase error inserting new teacher subject links:", insertError);
+        throw insertError;
+      }
+    }
   }
 };
 
+
 export const getTeachers = async (): Promise<UserProfile[]> => {
-  const { data, error } = await supabase.from('profiles').select('*').eq('role', 'teacher');
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(`
+      *,
+      teacher_subjects ( subject_id )
+    `)
+    .eq('role', 'teacher');
+
   if (error) {
     console.error("Supabase error fetching teachers:", error);
     throw error;
   }
   if (!data) return [];
-  return data.map(mapDbProfileToUserProfile).filter(profile => profile !== null) as UserProfile[];
+
+  return data.map(profile => {
+    const userProfile = mapDbProfileToUserProfile(profile);
+    if (userProfile) {
+      // The raw 'teacher_subjects' will be an array of objects like [{ subject_id: 'uuid1' }, { subject_id: 'uuid2' }]
+      // We need to extract the subject_id values into a simple array of strings.
+      const taughtSubjectIds = Array.isArray(profile.teacher_subjects)
+        ? profile.teacher_subjects.map((ts: any) => ts.subject_id).filter(Boolean)
+        : [];
+      userProfile.subjects_taught_ids = taughtSubjectIds;
+    }
+    return userProfile;
+  }).filter(profile => profile !== null) as UserProfile[];
 };
 
-export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ subjects_taught_id: subjectId }) // Ensure DB column is 'subjects_taught_id'
-    .eq('id', teacherId)
-    .eq('role', 'teacher');
+// This specific function might be better handled within the `updateUser` or a new `assignSubjectsToTeacher` function
+// that manages the `teacher_subjects` junction table.
+export const updateTeacherSubjects = async (teacherId: string, subjectIds: string[] | null): Promise<void> => {
+  // 1. Delete existing subject associations for this teacher
+  const { error: deleteError } = await supabase
+    .from('teacher_subjects')
+    .delete()
+    .eq('teacher_id', teacherId);
 
-  if (error) {
-    console.error("Supabase error updating teacher subjects:", error);
-    throw error;
+  if (deleteError) {
+    console.error("Supabase error deleting old teacher subject links for updateTeacherSubjects:", deleteError);
+    throw deleteError;
+  }
+
+  // 2. Insert new subject associations if any
+  if (subjectIds && subjectIds.length > 0) {
+    const teacherSubjectsToInsert = subjectIds.map(subjectId => ({
+      teacher_id: teacherId,
+      subject_id: subjectId,
+    }));
+    const { error: insertError } = await supabase
+      .from('teacher_subjects')
+      .insert(teacherSubjectsToInsert);
+    if (insertError) {
+      console.error("Supabase error inserting new teacher subject links for updateTeacherSubjects:", insertError);
+      throw insertError;
+    }
   }
 };
+
 
 // --- Questions for Lesson ---
 export const getQuestionsForLesson = async (lessonId: string): Promise<Question[]> => {

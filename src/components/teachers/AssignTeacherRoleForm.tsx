@@ -21,7 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const assignTeacherSchema = z.object({
   email: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح." }),
   name: z.string().optional(), 
-  subjectsTaughtIds: z.array(z.string()).optional().default([]), 
+  subjects_taught_ids: z.array(z.string()).optional().default([]), // Changed to array
   youtubeChannelUrl: z.string().url({ message: "الرجاء إدخال رابط URL صحيح لقناة يوتيوب." }).optional().or(z.literal('')),
 });
 
@@ -43,7 +43,7 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
     defaultValues: {
       email: '',
       name: '', 
-      subjectsTaughtIds: [],
+      subjects_taught_ids: [],
       youtubeChannelUrl: '',
     },
   });
@@ -78,7 +78,7 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
 
       const updatePayload: Partial<UserProfile> = {
         role: 'teacher',
-        subjects_taught_id: data.subjectsTaughtIds && data.subjectsTaughtIds.length > 0 ? data.subjectsTaughtIds[0] : null,
+        subjects_taught_ids: data.subjects_taught_ids && data.subjects_taught_ids.length > 0 ? data.subjects_taught_ids : null, // Pass array or null
         youtube_channel_url: data.youtubeChannelUrl || null,
       };
 
@@ -169,12 +169,12 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
             />
             <FormField
               control={form.control}
-              name="subjectsTaughtIds"
-              render={({ field }) => (
+              name="subjects_taught_ids"
+              render={() => ( // Changed to render without field to manage array manually
                 <FormItem>
-                  <FormLabel>المادة التي سيدرسها</FormLabel>
+                  <FormLabel>المواد التي سيدرسها</FormLabel>
                   <FormDescription>
-                    اختر مادة واحدة ليتم ربطها بالمدرس. الواجهة الحالية تسمح بتحديد متعدد ولكن سيتم حفظ المادة الأولى المحددة فقط بسبب بنية قاعدة البيانات.
+                    اختر المواد التي سيتم ربطها بالمدرس.
                   </FormDescription>
                   {isFetchingSubjects ? (
                      <div className="flex items-center justify-center p-2"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> <span className="text-sm text-muted-foreground ml-2">جاري تحميل المواد...</span></div>
@@ -184,20 +184,37 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
                     <ScrollArea className="h-40 rounded-md border p-2">
                       <div className="space-y-1">
                         {allSubjects.map((subject) => (
-                          <div key={subject.id} className="flex items-center space-x-2 rtl:space-x-reverse">
-                            <Checkbox
-                              id={`assign-subject-${subject.id}`}
-                              checked={field.value?.includes(subject.id!)}
-                              onCheckedChange={(checked) => {
-                                return checked
-                                  ? field.onChange([subject.id!]) // Allow only one selection
-                                  : field.onChange([]);
-                              }}
-                            />
-                            <Label htmlFor={`assign-subject-${subject.id}`} className="font-normal text-sm cursor-pointer">
-                              {subject.name} ({subject.branch})
-                            </Label>
-                          </div>
+                          <FormField
+                            key={subject.id}
+                            control={form.control}
+                            name="subjects_taught_ids"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={subject.id}
+                                  className="flex flex-row items-center space-x-2 rtl:space-x-reverse"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(subject.id!)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...(field.value || []), subject.id!])
+                                          : field.onChange(
+                                              (field.value || []).filter(
+                                                (value) => value !== subject.id
+                                              )
+                                            );
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <Label className="font-normal text-sm cursor-pointer">
+                                    {subject.name} ({subject.branch})
+                                  </Label>
+                                </FormItem>
+                              );
+                            }}
+                          />
                         ))}
                       </div>
                     </ScrollArea>

@@ -47,7 +47,7 @@ export interface UserProfile {
   active_subscription?: ActiveSubscription | null; // From SQL (jsonb) - maps to 'active_subscription' column
   role?: 'admin' | 'user' | 'student' | 'teacher' | null; // From SQL
   youtube_channel_url?: string | null; // From SQL
-  subjects_taught_id?: string | null; // Changed from subjectsTaughtIds (string[]) to singular string | null, matches SQL 'subjects_taught_ids uuid null'
+  subjects_taught_ids?: string[] | null; // Changed to array for multiple subjects
   created_at?: string; // Supabase uses snake_case ISO date strings
   updated_at?: string;
 }

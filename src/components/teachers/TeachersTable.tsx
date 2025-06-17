@@ -79,18 +79,16 @@ export default function TeachersTable() {
 
   const handleOpenEditModal = (teacher: UserProfile) => {
     setEditingTeacher(teacher);
-    setSelectedSubjectIdsInDialog(teacher.subjects_taught_id ? [teacher.subjects_taught_id] : []);
+    setSelectedSubjectIdsInDialog(teacher.subjects_taught_ids || []); // Initialize with existing array
     setCurrentYoutubeUrl(teacher.youtube_channel_url || '');
   };
 
   const handleSubjectSelectionChange = (subjectId: string, checked: boolean | "indeterminate") => {
-    // If only one subject can be taught, this should be a radio or single select.
-    // For now, we'll allow selecting one, and if multiple are checked, save the first.
-    if (checked === true) {
-      setSelectedSubjectIdsInDialog([subjectId]); // Replace with the new selection
-    } else {
-      setSelectedSubjectIdsInDialog(prev => prev.filter(id => id !== subjectId));
-    }
+    setSelectedSubjectIdsInDialog(prevSelected =>
+      checked === true
+        ? [...prevSelected, subjectId]
+        : prevSelected.filter(id => id !== subjectId)
+    );
   };
 
   const handleSaveTeacherDetails = async () => {
@@ -108,7 +106,7 @@ export default function TeachersTable() {
       }
 
       const updatePayload: Partial<UserProfile> = {
-        subjects_taught_id: selectedSubjectIdsInDialog.length > 0 ? selectedSubjectIdsInDialog[0] : null,
+        subjects_taught_ids: selectedSubjectIdsInDialog.length > 0 ? selectedSubjectIdsInDialog : null,
         youtube_channel_url: currentYoutubeUrl || null,
       };
 
@@ -153,7 +151,7 @@ export default function TeachersTable() {
             <TableHeader>
               <TableRow>
                 <TableHead className="font-semibold">اسم المدرس / البريد الإلكتروني</TableHead>
-                <TableHead className="font-semibold">المادة الدراسية</TableHead>
+                <TableHead className="font-semibold">المواد الدراسية</TableHead>
                 <TableHead className="font-semibold">قناة يوتيوب</TableHead>
                 <TableHead className="font-semibold text-right">إجراءات</TableHead>
               </TableRow>
@@ -165,10 +163,14 @@ export default function TeachersTable() {
                     {teacher.name || teacher.email} 
                   </TableCell>
                   <TableCell>
-                    {teacher.subjects_taught_id ? (
-                        <Badge variant="secondary">
-                            {subjectsMap.get(teacher.subjects_taught_id) || 'مادة غير معروفة'}
-                        </Badge>
+                    {teacher.subjects_taught_ids && teacher.subjects_taught_ids.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                            {teacher.subjects_taught_ids.map(subjectId => (
+                                <Badge key={subjectId} variant="secondary">
+                                    {subjectsMap.get(subjectId) || 'مادة غير معروفة'}
+                                </Badge>
+                            ))}
+                        </div>
                     ) : (
                       <span className="text-muted-foreground">لم يتم تعيين مواد</span>
                     )}
@@ -202,7 +204,7 @@ export default function TeachersTable() {
                           <DialogHeader>
                             <DialogTitle>إدارة تفاصيل المدرس: {editingTeacher.name || editingTeacher.email}</DialogTitle> 
                             <DialogDescription>
-                              اختر المادة التي يدرسها هذا المدرس وعدل رابط قناة يوتيوب.
+                              اختر المواد التي يدرسها هذا المدرس وعدل رابط قناة يوتيوب.
                             </DialogDescription>
                           </DialogHeader>
                           
@@ -220,8 +222,7 @@ export default function TeachersTable() {
                             </div>
 
                             <div>
-                                <Label className="text-sm font-medium">المادة الدراسية</Label>
-                                <Label className="text-xs text-muted-foreground block mt-1">ملاحظة: يمكن إسناد مادة واحدة فقط لكل مدرس حاليًا.</Label>
+                                <Label className="text-sm font-medium">المواد الدراسية</Label>
                                 {allSubjects.length > 0 ? (
                                 <ScrollArea className="h-60 mt-1 border rounded-md p-2">
                                     <div className="space-y-2">
@@ -252,7 +253,7 @@ export default function TeachersTable() {
                             <Button 
                               type="button" 
                               onClick={handleSaveTeacherDetails} 
-                              disabled={isSaving || (allSubjects.length === 0 && !currentYoutubeUrl) }
+                              disabled={isSaving}
                             >
                               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                               حفظ التغييرات
