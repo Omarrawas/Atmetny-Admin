@@ -533,7 +533,7 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
     image_url: data.imageUrl || null,
   };
   const { data: newArticle, error } = await supabase
-    .from('news_items')
+    .from('news_items') // Using news_items as confirmed
     .insert(dbData)
     .select('id')
     .single();
@@ -550,7 +550,7 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
 
 export const getNewsArticles = async (): Promise<NewsArticle[]> => {
   const { data, error } = await supabase
-    .from('news_items')
+    .from('news_items') // Using news_items as confirmed
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -577,15 +577,15 @@ export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArtic
   else if (data.hasOwnProperty('imageUrl') && data.imageUrl === null) dbData.image_url = null;
 
 
-  const { error } = await supabase.from('news_items').update(dbData).eq('id', id);
+  const { error } = await supabase.from('news_items').update(dbData).eq('id', id); // Using news_items
   if (error) throw error;
 };
 export const deleteNewsArticle = async (id: string): Promise<void> => {
-  const { error } = await supabase.from('news_items').delete().eq('id', id);
+  const { error } = await supabase.from('news_items').delete().eq('id', id); // Using news_items
   if (error) throw error;
 };
 export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => {
-  const { data: article, error } = await supabase.from('news_items').select('*').eq('id', id).single();
+  const { data: article, error } = await supabase.from('news_items').select('*').eq('id', id).single(); // Using news_items
   if (error && error.code !== 'PGRST116') throw error;
   if (!article) return null;
   return {
@@ -1048,7 +1048,34 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
 
 
 // --- App Settings ---
-export const getAppSettings = async (): Promise<AppSettings | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAppSettings"); };
+export const getAppSettings = async (): Promise<AppSettings | null> => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('*')
+    .limit(1) // Assuming there's only one row for app settings
+    .single(); // Fetches a single row, or null if not found
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 means "single row not found"
+    console.error("Supabase error fetching app settings:", error);
+    throw error;
+  }
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: String(data.id),
+    appName: data.app_name,
+    appLogoUrl: data.app_logo_url,
+    supportPhoneNumber: data.support_phone_number,
+    supportEmail: data.support_email,
+    socialMediaLinks: data.social_media_links || [],
+    termsOfServiceUrl: data.terms_of_service_url,
+    privacyPolicyUrl: data.privacy_policy_url,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  } as AppSettings;
+};
 export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAppSettings"); };
 
 // --- Exam Titles (Helper) ---
@@ -1142,6 +1169,7 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
 
 
 
