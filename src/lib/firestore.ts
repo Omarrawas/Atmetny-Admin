@@ -309,7 +309,41 @@ export const getQuestionById = async (id: string): Promise<Question | null> => {
 export const importQuestionsBatch = async (questions: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": importQuestionsBatch"); };
 
 // --- Exams ---
-export const addExam = async (data: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addExam"); };
+export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+  const dbData: any = {
+    title: data.title,
+    description: data.description || null,
+    subject_id: data.subjectId,
+    question_ids: data.questionIds || [],
+    published: data.published || false,
+    image: data.image || null,
+    image_hint: data.imageHint || null,
+    teacher_name: data.teacherName || null,
+    teacher_id: data.teacherId || null,
+    duration: data.durationInMinutes ?? data.duration ?? null,
+  };
+
+  const { data: newExam, error } = await supabase
+    .from('exams')
+    .insert(dbData)
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error("Supabase error adding exam:", error);
+    try {
+        console.error("Stringified Supabase error in addExam:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+        console.error("Could not stringify Supabase error in addExam:", e);
+    }
+    throw error;
+  }
+  if (!newExam || !newExam.id) {
+    throw new Error("Failed to add exam: No ID returned from database.");
+  }
+  return String(newExam.id);
+};
+
 
 export const getExams = async (): Promise<Exam[]> => {
   const { data, error } = await supabase
@@ -871,6 +905,7 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
 
     
+
 
 
 
