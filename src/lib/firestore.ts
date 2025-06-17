@@ -262,13 +262,11 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
   if (data.subjectId !== undefined) dbData.subject_id = (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null;
   if (data.lessonId !== undefined) dbData.lesson_id = (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null;
   if (data.tagIds !== undefined) dbData.tag_ids = Array.isArray(data.tagIds) ? data.tagIds : [];
-  // Use hasOwnProperty to allow setting to null explicitly
   if (data.hasOwnProperty('isSane')) dbData.is_sane = data.isSane;
   if (data.hasOwnProperty('sanityExplanation')) dbData.sanity_explanation = data.sanityExplanation;
   if (data.isLocked !== undefined) dbData.is_locked = data.isLocked;
 
-  // Determine current question type for type-specific fields
-  // If data.questionType is provided, use it. Otherwise, fetch the existing question to find its type.
+
   const currentQuestionType = data.questionType || (await getQuestionById(id))?.questionType;
 
   if (currentQuestionType === 'mcq') {
@@ -277,21 +275,18 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
     if (mcqData.correctOptionId !== undefined) dbData.correct_option_id = mcqData.correctOptionId;
   } else if (currentQuestionType === 'true_false') {
     const tfData = data as Partial<TrueFalseQuestion>;
-    if (tfData.options !== undefined) dbData.options = tfData.options; // Typically [{id:'true', text:'...'}, {id:'false', text:'...'}]
+    if (tfData.options !== undefined) dbData.options = tfData.options;
     if (tfData.correctOptionId !== undefined) dbData.correct_option_id = tfData.correctOptionId;
   } else if (currentQuestionType === 'fill_in_the_blanks') {
     const fitbData = data as Partial<FillInTheBlanksQuestion>;
     if (fitbData.correctAnswers !== undefined) dbData.correct_answers = fitbData.correctAnswers;
   } else if (currentQuestionType === 'short_answer') {
     const saData = data as Partial<ShortAnswerQuestion>;
-    // Ensure modelAnswer can be set to null explicitly
     if (saData.hasOwnProperty('modelAnswer')) {
         dbData.model_answer = saData.modelAnswer === undefined || saData.modelAnswer === '' ? null : saData.modelAnswer;
     }
   }
-  // Note: If data.questionType changes, old type-specific fields (e.g., options from mcq when changing to true_false)
-  // are not automatically nulled out in the DB by this logic unless explicitly set to null in `data`.
-  // For a full type change, ensure `data` also nulls out fields of the previous type.
+
 
   if (Object.keys(dbData).length === 0) {
     console.warn("updateQuestion called with no data to update for id:", id);
@@ -305,7 +300,7 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
 
   if (error) {
     console.info(`Supabase error details for updateQuestion (ID: ${id}) will follow on the next line(s).`);
-    console.error(error); // Log the raw error object
+    console.error(error);
     try {
       console.error("Stringified Supabase error in updateQuestion:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -538,13 +533,13 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
     image_url: data.imageUrl || null,
   };
   const { data: newArticle, error } = await supabase
-    .from('news_articles')
+    .from('news_items') // Updated table name
     .insert(dbData)
     .select('id')
     .single();
 
   if (error) {
-    console.error("Supabase error adding news article:", error);
+    console.error("Supabase error adding news article to news_items:", error);
     throw error;
   }
   if (!newArticle || !newArticle.id) {
@@ -555,18 +550,18 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
 
 export const getNewsArticles = async (): Promise<NewsArticle[]> => {
   const { data, error } = await supabase
-    .from('news_articles')
+    .from('news_items') // Updated table name
     .select('*')
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error("Supabase error fetching news articles:", error);
+    console.error("Supabase error fetching news articles from news_items:", error);
     throw error;
   }
   if (!data) return [];
 
   return data.map((article: any) => ({
-    id: String(article.id), // Ensure ID is string
+    id: String(article.id),
     title: article.title,
     content: article.content,
     imageUrl: article.image_url,
@@ -574,9 +569,35 @@ export const getNewsArticles = async (): Promise<NewsArticle[]> => {
     updated_at: article.updated_at,
   })) as NewsArticle[];
 };
-export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateNewsArticle"); };
-export const deleteNewsArticle = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteNewsArticle"); };
-export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getNewsArticleById"); };
+export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+  const dbData: any = {};
+  if (data.title !== undefined) dbData.title = data.title;
+  if (data.content !== undefined) dbData.content = data.content;
+  if (data.imageUrl !== undefined) dbData.image_url = data.imageUrl;
+  else if (data.hasOwnProperty('imageUrl') && data.imageUrl === null) dbData.image_url = null;
+
+
+  const { error } = await supabase.from('news_items').update(dbData).eq('id', id);
+  if (error) throw error;
+};
+export const deleteNewsArticle = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('news_items').delete().eq('id', id);
+  if (error) throw error;
+};
+export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => {
+  const { data: article, error } = await supabase.from('news_items').select('*').eq('id', id).single();
+  if (error && error.code !== 'PGRST116') throw error;
+  if (!article) return null;
+  return {
+    id: String(article.id),
+    title: article.title,
+    content: article.content,
+    imageUrl: article.image_url,
+    created_at: article.created_at,
+    updated_at: article.updated_at,
+  } as NewsArticle;
+};
+
 
 // --- Activation Codes (QR Codes) ---
 export const addAccessCode = async (data: Omit<AccessCode, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
@@ -991,7 +1012,7 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
     completed_at,
     created_at,
     updated_at
-  `); // Join with profiles and exams
+  `); 
 
   if (examId) {
     query = query.eq('exam_id', examId);
@@ -1008,14 +1029,13 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
   return data.map((attempt: any) => ({
     id: String(attempt.id),
     studentId: attempt.student_id,
-    // Access joined data carefully
     studentName: attempt.profiles?.name || attempt.profiles?.email || 'Unknown Student', 
     examId: attempt.exam_id,
     examTitle: attempt.exams?.title || 'Unknown Exam',
     score: attempt.score,
     totalPossibleScore: attempt.total_possible_score,
     percentage: attempt.percentage,
-    answers: attempt.answers as AnswerAttempt[],
+    answers: attempt.answers as AnswerAttempt[], // Type assertion for answers
     startedAt: attempt.started_at,
     completedAt: attempt.completed_at,
     created_at: attempt.created_at,
@@ -1033,7 +1053,29 @@ export const getExamTitleById = async (examId: string): Promise<string | null> =
 
 // --- Announcements ---
 export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addAnnouncement"); };
-export const getAnnouncements = async (): Promise<Announcement[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAnnouncements"); };
+
+export const getAnnouncements = async (): Promise<Announcement[]> => {
+  const { data, error } = await supabase
+    .from('announcements') // Assuming your table is named 'announcements'
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("Supabase error fetching announcements:", error);
+    throw error;
+  }
+  if (!data) return [];
+
+  return data.map((item: any) => ({
+    id: String(item.id),
+    title: item.title,
+    message: item.message,
+    type: item.type as AnnouncementType,
+    isActive: item.is_active,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  })) as Announcement[];
+};
 export const updateAnnouncement = async (id: string, data: Partial<Omit<Announcement, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAnnouncement"); };
 export const deleteAnnouncement = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteAnnouncement"); };
 export const getAnnouncementById = async (id: string): Promise<Announcement | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAnnouncementById"); };
