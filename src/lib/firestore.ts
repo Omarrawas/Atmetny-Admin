@@ -5,7 +5,7 @@
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
-import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType } from '@/types';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
@@ -534,7 +534,7 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
     image_url: data.imageUrl || null,
   };
   const { data: newArticle, error } = await supabase
-    .from('news_items') // Using news_items as confirmed
+    .from('news_items')
     .insert(dbData)
     .select('id')
     .single();
@@ -551,7 +551,7 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
 
 export const getNewsArticles = async (): Promise<NewsArticle[]> => {
   const { data, error } = await supabase
-    .from('news_items') // Using news_items as confirmed
+    .from('news_items')
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -578,15 +578,15 @@ export const updateNewsArticle = async (id: string, data: Partial<Omit<NewsArtic
   else if (data.hasOwnProperty('imageUrl') && data.imageUrl === null) dbData.image_url = null;
 
 
-  const { error } = await supabase.from('news_items').update(dbData).eq('id', id); // Using news_items
+  const { error } = await supabase.from('news_items').update(dbData).eq('id', id);
   if (error) throw error;
 };
 export const deleteNewsArticle = async (id: string): Promise<void> => {
-  const { error } = await supabase.from('news_items').delete().eq('id', id); // Using news_items
+  const { error } = await supabase.from('news_items').delete().eq('id', id);
   if (error) throw error;
 };
 export const getNewsArticleById = async (id: string): Promise<NewsArticle | null> => {
-  const { data: article, error } = await supabase.from('news_items').select('*').eq('id', id).single(); // Using news_items
+  const { data: article, error } = await supabase.from('news_items').select('*').eq('id', id).single();
   if (error && error.code !== 'PGRST116') throw error;
   if (!article) return null;
   return {
@@ -850,29 +850,38 @@ export const updateLesson = async (subjectId: string, sectionId: string, lessonI
 export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
 
 // --- Users (Profiles) ---
-const mapDbProfileToUserProfile = (dbProfile: any): UserProfile => {
-  return {
-    id: String(dbProfile.id), // Ensure ID is string
-    email: dbProfile.email,
-    name: dbProfile.name,
-    avatar_url: dbProfile.avatar_url,
-    avatar_hint: dbProfile.avatar_hint,
-    points: dbProfile.points,
-    level: dbProfile.level,
-    progress_to_next_level: dbProfile.progress_to_next_level,
-    badges: dbProfile.badges,
-    rewards: dbProfile.rewards,
-    student_goals: dbProfile.student_goals,
-    branch: dbProfile.branch,
-    university: dbProfile.university,
-    major: dbProfile.major,
-    active_subscription: dbProfile.active_subscription,
-    role: dbProfile.role as UserProfile['role'],
-    youtube_channel_url: dbProfile.youtube_channel_url,
-    subjects_taught_id: dbProfile.subjects_taught_ids,
-    created_at: dbProfile.created_at,
-    updated_at: dbProfile.updated_at,
-  };
+const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
+  if (!dbProfile || !dbProfile.id) {
+    console.warn("mapDbProfileToUserProfile: Skipping profile due to missing id", dbProfile);
+    return null;
+  }
+  try {
+    return {
+      id: String(dbProfile.id),
+      email: dbProfile.email,
+      name: dbProfile.name,
+      avatar_url: dbProfile.avatar_url,
+      avatar_hint: dbProfile.avatar_hint,
+      points: dbProfile.points,
+      level: dbProfile.level,
+      progress_to_next_level: dbProfile.progress_to_next_level,
+      badges: Array.isArray(dbProfile.badges) ? dbProfile.badges as Badge[] : [],
+      rewards: Array.isArray(dbProfile.rewards) ? dbProfile.rewards as Reward[] : [],
+      student_goals: dbProfile.student_goals,
+      branch: dbProfile.branch as SubjectBranchEnum || null,
+      university: dbProfile.university,
+      major: dbProfile.major,
+      active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null,
+      role: dbProfile.role as UserProfile['role'] || null,
+      youtube_channel_url: dbProfile.youtube_channel_url,
+      subjects_taught_id: dbProfile.subjects_taught_id, // Corrected from subjects_taught_ids
+      created_at: dbProfile.created_at,
+      updated_at: dbProfile.updated_at,
+    };
+  } catch (error) {
+    console.error("Error mapping DB profile to UserProfile:", error, "Profile data:", dbProfile);
+    return null;
+  }
 };
 
 const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any => {
@@ -880,7 +889,8 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_ids = userProfileData.subjects_taught_id;
+  // Ensure this matches the DB column name and type. Assuming subjects_taught_id is the DB column.
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_id = userProfileData.subjects_taught_id;
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
@@ -903,7 +913,8 @@ export const getUsers = async (): Promise<UserProfile[]> => {
     console.error("Supabase error fetching users:", error);
     throw error;
   }
-  return data ? data.map(mapDbProfileToUserProfile) : [];
+  if (!data) return [];
+  return data.map(mapDbProfileToUserProfile).filter(profile => profile !== null) as UserProfile[];
 };
 
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
@@ -912,7 +923,8 @@ export const getUserByEmail = async (email: string): Promise<UserProfile | null>
     console.error("Supabase error fetching user by email:", error);
     throw error;
   }
-  return data ? mapDbProfileToUserProfile(data) : null;
+  if (!data) return null;
+  return mapDbProfileToUserProfile(data);
 };
 
 export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
@@ -939,13 +951,14 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
     console.error("Supabase error fetching teachers:", error);
     throw error;
   }
-  return data ? data.map(mapDbProfileToUserProfile) : [];
+  if (!data) return [];
+  return data.map(mapDbProfileToUserProfile).filter(profile => profile !== null) as UserProfile[];
 };
 
 export const updateTeacherSubjects = async (teacherId: string, subjectId: string | null): Promise<void> => {
   const { error } = await supabase
     .from('profiles')
-    .update({ subjects_taught_ids: subjectId })
+    .update({ subjects_taught_id: subjectId }) // Ensure DB column is 'subjects_taught_id'
     .eq('id', teacherId)
     .eq('role', 'teacher');
 
@@ -1016,7 +1029,7 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
     completed_at,
     created_at,
     updated_at
-  `); 
+  `);
 
   if (examId) {
     query = query.eq('exam_id', examId);
@@ -1033,13 +1046,13 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
   return data.map((attempt: any) => ({
     id: String(attempt.id),
     studentId: attempt.student_id,
-    studentName: attempt.profiles?.name || attempt.profiles?.email || 'Unknown Student', 
+    studentName: attempt.profiles?.name || attempt.profiles?.email || 'Unknown Student',
     examId: attempt.exam_id,
     examTitle: attempt.exams?.title || 'Unknown Exam',
     score: attempt.score,
     totalPossibleScore: attempt.total_possible_score,
     percentage: attempt.percentage,
-    answers: attempt.answers, // Type assertion for answers (should be JSONB array of objects)
+    answers: attempt.answers as AnswerAttempt[],
     startedAt: attempt.started_at,
     completedAt: attempt.completed_at,
     created_at: attempt.created_at,
@@ -1053,10 +1066,10 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
   const { data, error } = await supabase
     .from('app_settings')
     .select('*')
-    .limit(1) // Assuming there's only one row for app settings
-    .single(); // Fetches a single row, or null if not found
+    .limit(1)
+    .single();
 
-  if (error && error.code !== 'PGRST116') { // PGRST116 means "single row not found"
+  if (error && error.code !== 'PGRST116') {
     console.error("Supabase error fetching app settings:", error);
     throw error;
   }
@@ -1108,14 +1121,9 @@ export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id'
       throw error;
     }
   } else {
-    // If no settings exist, insert them. This assumes your 'app_settings' table
-    // has an auto-generated 'id' or a way to handle inserts without specifying one.
-    // If 'id' is required for insert and not auto-gen, this will fail.
-    // A common pattern is to have a single row with a fixed known ID (e.g., 1)
-    // or a unique 'key' column (e.g., 'current_settings').
     const { error } = await supabase
       .from('app_settings')
-      .insert([settingsToUpdate]); // insert as an array
+      .insert([settingsToUpdate]);
 
     if (error) {
       console.error("Supabase error inserting app settings:", error);
@@ -1134,7 +1142,7 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
     title: data.title,
     message: data.message,
     type: data.type,
-    is_active: data.isActive,
+    is_active: data.isActive, // Map isActive to is_active
   };
   const { data: newAnnouncement, error } = await supabase
     .from('announcements')
@@ -1169,7 +1177,7 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
     title: item.title,
     message: item.message,
     type: item.type as AnnouncementType,
-    isActive: item.is_active,
+    isActive: item.is_active, // Map is_active to isActive
     created_at: item.created_at,
     updated_at: item.updated_at,
   })) as Announcement[];
@@ -1216,6 +1224,7 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
 
 
 
