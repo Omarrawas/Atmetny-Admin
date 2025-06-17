@@ -72,7 +72,7 @@ export interface BaseQuestion {
   questionText: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   subjectId?: string | null;
-  subject?: string;
+  subject?: string; // This might be denormalized or come from a join
   lessonId?: string | null;
   tagIds?: string[];
   created_at?: string;
@@ -116,22 +116,35 @@ export interface ShortAnswerQuestion extends BaseQuestion {
 
 export type Question = MCQQuestion | TrueFalseQuestion | FillInTheBlanksQuestion | ShortAnswerQuestion;
 
+// Interface for the data linking an exam to a question via the junction table
+export interface ExamQuestionLink {
+  question_id: string;
+  order_number?: number | null;
+  points?: number | null;
+  question: Question; // The fully populated question object
+}
+
 export interface Exam {
   id?: string;
   title: string;
-  description?: string;
+  description?: string | null;
   subjectId: string;
-  questionIds: string[];
+  // questionIds: string[]; // Removed this
   published?: boolean;
   image?: string | null;
   imageHint?: string | null;
   teacherName?: string | null;
   teacherId?: string | null;
-  durationInMinutes?: number | null; // Maintained for form input consistency
+  durationInMinutes?: number | null;
   duration?: number | null; // Stored in DB as 'duration' (minutes)
   created_at?: string;
   updated_at?: string;
+
+  // New fields related to the exam_questions junction table
+  questionCount?: number; // For list views, total count of questions linked to this exam
+  questions?: ExamQuestionLink[]; // For detail/edit views, array of linked questions with their order and points
 }
+
 
 export interface NewsArticle {
   id?: string;

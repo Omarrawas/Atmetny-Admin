@@ -1,4 +1,3 @@
-
 // src/app/dashboard/exams/edit/[id]/page.tsx
 "use client";
 
@@ -17,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { getExamById, updateExam, getQuestions, getSubjects, getTags } from '@/lib/firestore';
-import type { Exam, Question, Subject, Tag } from '@/types';
+import type { Exam, Question, Subject, Tag, ExamQuestionLink } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, ClipboardEdit, AlertTriangle, BookCopy, TagsIcon, Search, Eye, EyeOff, Image as ImageIcon, User, Clock } from 'lucide-react';
@@ -78,7 +77,7 @@ export default function EditExamPage() {
 
   const selectedQuestionIds = form.watch("selectedQuestionIds");
   const publishedStatus = form.watch("published");
-  const watchedImage = form.watch("image"); // Watch for image changes to update preview
+  const watchedImage = form.watch("image"); 
 
   useEffect(() => {
     setCurrentExamImageUrl(watchedImage);
@@ -108,12 +107,14 @@ export default function EditExamPage() {
           toast({ variant: "destructive", title: "خطأ", description: "الامتحان المطلوب غير موجود." });
           return;
         }
+        
+        const linkedQuestionIds = examData.questions?.map(qLink => qLink.question.id!).filter(id => id) || [];
 
         form.reset({
           title: examData.title,
           description: examData.description || '',
           subjectId: examData.subjectId,
-          selectedQuestionIds: examData.questionIds || [],
+          selectedQuestionIds: linkedQuestionIds,
           published: examData.published || false,
           image: examData.image || '',
           imageHint: examData.imageHint || '',
@@ -225,7 +226,7 @@ export default function EditExamPage() {
         title: data.title,
         description: data.description || '',
         subjectId: data.subjectId,
-        questionIds: data.selectedQuestionIds,
+        questionIds: data.selectedQuestionIds, // Pass this to updateExam which handles junction table
         published: data.published,
         image: data.image || null,
         imageHint: data.imageHint || null,

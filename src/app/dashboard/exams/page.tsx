@@ -1,4 +1,3 @@
-
 // src/app/dashboard/exams/page.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
@@ -89,7 +88,8 @@ export default function ExamsPage() {
     setTogglingPublishExamId(exam.id);
     try {
       const newPublishedStatus = !(exam.published || false);
-      await updateExam(exam.id, { published: newPublishedStatus });
+      // Pass an empty questionIds array as it's now managed by exam_questions table
+      await updateExam(exam.id, { published: newPublishedStatus, questionIds: [] });
       setExams(prevExams =>
         prevExams.map(e =>
           e.id === exam.id ? { ...e, published: newPublishedStatus } : e
@@ -111,16 +111,13 @@ export default function ExamsPage() {
     }
   };
 
-  const getQuestionCountText = (count: number) => {
-    if (count === 0) return '0 أسئلة';
-    if (count === 1) return 'سؤال واحد';
-    if (count === 2) return 'سؤالان';
-    if (count >= 3 && count <= 10) return `${count} أسئلة`;
-    return `${count} سؤالاً`;
-  };
-
-  const getQuestionCount = (exam: Exam) => {
-    return Array.isArray(exam.questionIds) ? exam.questionIds.length : 0;
+  const getQuestionCountText = (count?: number) => {
+    const numCount = count || 0;
+    if (numCount === 0) return '0 أسئلة';
+    if (numCount === 1) return 'سؤال واحد';
+    if (numCount === 2) return 'سؤالان';
+    if (numCount >= 3 && numCount <= 10) return `${numCount} أسئلة`;
+    return `${numCount} سؤالاً`;
   };
 
 
@@ -160,7 +157,6 @@ export default function ExamsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {exams.map((exam) => {
-                const questionCount = getQuestionCount(exam);
                 return (
                   <Card key={exam.id} className="flex flex-col justify-between hover:shadow-md transition-shadow duration-200 overflow-hidden">
                     {exam.image && exam.image.trim() !== '' ? (
@@ -182,7 +178,7 @@ export default function ExamsPage() {
                       <div className="flex justify-between items-start">
                           <CardTitle className="text-xl">{exam.title}</CardTitle>
                           <Badge variant="secondary" className="whitespace-nowrap">
-                            {getQuestionCountText(questionCount)}
+                            {getQuestionCountText(exam.questionCount)}
                           </Badge>
                       </div>
                       {exam.description && (

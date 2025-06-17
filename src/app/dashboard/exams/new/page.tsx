@@ -1,4 +1,3 @@
-
 // src/app/dashboard/exams/new/page.tsx
 "use client";
 
@@ -185,11 +184,14 @@ export default function NewExamPage() {
   const onSubmit = async (data: ExamFormValues) => {
     setIsLoading(true);
     try {
+      // The data passed to addExam now matches its new signature in firestore.ts
       await addExam({
         title: data.title,
         description: data.description || '',
         subjectId: data.subjectId,
-        questionIds: data.selectedQuestionIds,
+        // 'questionIds' here is the array of selected question IDs from the form
+        // The addExam function in firestore.ts will handle creating entries in 'exam_questions'
+        questionIds: data.selectedQuestionIds, 
         published: data.published,
         image: data.image || null,
         imageHint: data.imageHint || null,
