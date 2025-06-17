@@ -4,7 +4,7 @@
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
-import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink } from '@/types';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
@@ -533,7 +533,7 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
     image_url: data.imageUrl || null,
   };
   const { data: newArticle, error } = await supabase
-    .from('news_items') // Updated table name
+    .from('news_items')
     .insert(dbData)
     .select('id')
     .single();
@@ -550,7 +550,7 @@ export const addNewsArticle = async (data: Omit<NewsArticle, 'id' | 'created_at'
 
 export const getNewsArticles = async (): Promise<NewsArticle[]> => {
   const { data, error } = await supabase
-    .from('news_items') // Updated table name
+    .from('news_items')
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -1035,7 +1035,7 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
     score: attempt.score,
     totalPossibleScore: attempt.total_possible_score,
     percentage: attempt.percentage,
-    answers: attempt.answers as AnswerAttempt[], // Type assertion for answers
+    answers: attempt.answers, // Type assertion for answers (should be JSONB array of objects)
     startedAt: attempt.started_at,
     completedAt: attempt.completed_at,
     created_at: attempt.created_at,
@@ -1052,11 +1052,32 @@ export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id'
 export const getExamTitleById = async (examId: string): Promise<string | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExamTitleById"); };
 
 // --- Announcements ---
-export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_at' | 'updated_at'>): Promise<string> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addAnnouncement"); };
+export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+  const dbData = {
+    title: data.title,
+    message: data.message,
+    type: data.type,
+    is_active: data.isActive,
+  };
+  const { data: newAnnouncement, error } = await supabase
+    .from('announcements')
+    .insert(dbData)
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error("Supabase error adding announcement:", error);
+    throw error;
+  }
+  if (!newAnnouncement || !newAnnouncement.id) {
+    throw new Error("Failed to add announcement: No ID returned from database.");
+  }
+  return String(newAnnouncement.id);
+};
 
 export const getAnnouncements = async (): Promise<Announcement[]> => {
   const { data, error } = await supabase
-    .from('announcements') // Assuming your table is named 'announcements'
+    .from('announcements')
     .select('*')
     .order('created_at', { ascending: false });
 
