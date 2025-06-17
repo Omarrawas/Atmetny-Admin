@@ -141,7 +141,7 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
     difficulty: data.difficulty,
     subject_id: (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null,
     lesson_id: (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null,
-    tag_ids: Array.isArray(data.tagIds) ? data.tagIds : [], // Ensure tag_ids is always an array
+    tag_ids: Array.isArray(data.tagIds) ? data.tagIds : [],
     is_sane: data.isSane ?? null,
     sanity_explanation: data.sanityExplanation ?? null,
     is_locked: data.isLocked ?? true,
@@ -163,7 +163,11 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
       dbData.model_answer = (data as ShortAnswerQuestion).modelAnswer ?? null;
       break;
     default:
+      // This case should ideally not be reached if data.questionType is correctly typed and validated.
+      // However, as a fallback for type safety with 'as any':
       console.warn(`addQuestion: Unknown question type encountered: ${(data as any).questionType}`);
+      // Potentially throw an error or handle as an invalid type.
+      // For now, we'll proceed, but Supabase might reject if 'question_type' enum doesn't match.
       break;
   }
 
@@ -246,7 +250,60 @@ export const getQuestions = async (): Promise<Question[]> => {
     }
   });
 };
-export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateQuestion"); };
+export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
+  const dbData: any = {};
+
+  // Map common fields
+  if (data.questionType !== undefined) dbData.question_type = data.questionType;
+  if (data.questionText !== undefined) dbData.question_text = data.questionText;
+  if (data.difficulty !== undefined) dbData.difficulty = data.difficulty;
+  if (data.subjectId !== undefined) dbData.subject_id = (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null;
+  if (data.lessonId !== undefined) dbData.lesson_id = (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null;
+  if (data.tagIds !== undefined) dbData.tag_ids = Array.isArray(data.tagIds) ? data.tagIds : [];
+  if (data.hasOwnProperty('isSane')) dbData.is_sane = data.isSane; // Allow setting to null
+  if (data.hasOwnProperty('sanityExplanation')) dbData.sanity_explanation = data.sanityExplanation; // Allow setting to null
+  if (data.isLocked !== undefined) dbData.is_locked = data.isLocked;
+
+  const currentQuestionType = data.questionType;
+
+  if (currentQuestionType === 'mcq') {
+    const mcqData = data as Partial<MCQQuestion>;
+    if (mcqData.options !== undefined) dbData.options = mcqData.options;
+    if (mcqData.correctOptionId !== undefined) dbData.correct_option_id = mcqData.correctOptionId;
+  } else if (currentQuestionType === 'true_false') {
+    const tfData = data as Partial<TrueFalseQuestion>;
+    if (tfData.options !== undefined) dbData.options = tfData.options;
+    if (tfData.correctOptionId !== undefined) dbData.correct_option_id = tfData.correctOptionId;
+  } else if (currentQuestionType === 'fill_in_the_blanks') {
+    const fitbData = data as Partial<FillInTheBlanksQuestion>;
+    if (fitbData.correctAnswers !== undefined) dbData.correct_answers = fitbData.correctAnswers;
+  } else if (currentQuestionType === 'short_answer') {
+    const saData = data as Partial<ShortAnswerQuestion>;
+    if (saData.modelAnswer !== undefined) dbData.model_answer = saData.modelAnswer;
+  }
+
+
+  if (Object.keys(dbData).length === 0) {
+    console.warn("updateQuestion called with no data to update for id:", id);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('questions')
+    .update(dbData)
+    .eq('id', id);
+
+  if (error) {
+    console.info(`Supabase error details for updateQuestion (ID: ${id}) will follow on the next line(s).`);
+    console.error(error);
+    try {
+      console.error("Stringified Supabase error in updateQuestion:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("Could not stringify Supabase error in updateQuestion:", e);
+    }
+    throw error;
+  }
+};
 export const deleteQuestion = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteQuestion"); };
 export const getQuestionById = async (id: string): Promise<Question | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getQuestionById"); };
 export const importQuestionsBatch = async (questions: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": importQuestionsBatch"); };
@@ -410,9 +467,11 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
   } else {
     sectionDataToInsert.order = null;
   }
-  if (data.isLocked !== undefined) {
-    sectionDataToInsert.is_locked = data.isLocked;
+  // isLocked is handled by DB default if not provided, or taken from data if present
+  if (data.hasOwnProperty('isLocked')) { // Check if isLocked is explicitly provided
+      sectionDataToInsert.is_locked = data.isLocked;
   }
+
 
   const { data: insertedData, error } = await supabase
     .from('subject_sections')
@@ -442,7 +501,7 @@ export const addSubjectSection = async (subjectId: string, data: Omit<SubjectSec
     console.error("Supabase addSubjectSection did not return the expected 'id'. Response:", insertedData);
     throw new Error("Failed to add subject section: No 'id' returned from database or unexpected response.");
   }
-  return String(insertedData.id);
+  return String(insertedData.id); // ID is UUID, which is a string.
 };
 
 
@@ -456,13 +515,18 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
 
   if (error) {
     console.info(`Supabase error details for getSubjectSections (subject: ${subjectId}) will follow on the next line(s).`);
-    console.error(error);
+    console.error(error); // Log the raw error object
+    try {
+      console.error("Stringified Supabase error in getSubjectSections:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("Could not stringify Supabase error in getSubjectSections:", e);
+    }
     throw error;
   }
   if (!data) return [];
 
   return data.map((section: any) => ({
-    id: String(section.id),
+    id: String(section.id), // Ensure ID is string (UUIDs are strings)
     subjectId: section.subject_id,
     title: section.title,
     type: section.type as 'theory' | 'practical',
@@ -478,7 +542,7 @@ export const deleteSubjectSection = async (subjectId: string, sectionId: string)
   const { error } = await supabase
     .from('subject_sections')
     .delete()
-    .eq('id', sectionId);
+    .eq('id', sectionId); // Primary key is 'id'
 
   if (error) {
     console.error(`Supabase error deleting section ${sectionId} (for subject ${subjectId}):`, error);
@@ -807,6 +871,7 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
 
     
+
 
 
 
