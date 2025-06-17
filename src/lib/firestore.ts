@@ -852,34 +852,34 @@ export const deleteLesson = async (subjectId: string, sectionId: string, lessonI
 // --- Users (Profiles) ---
 const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
   if (!dbProfile || !dbProfile.id) {
-    console.warn("mapDbProfileToUserProfile: Skipping profile due to missing id", dbProfile);
+    console.warn("[mapDbProfileToUserProfile] Skipping profile due to missing id. Profile data:", dbProfile);
     return null;
   }
   try {
     return {
       id: String(dbProfile.id),
-      email: dbProfile.email,
-      name: dbProfile.name,
-      avatar_url: dbProfile.avatar_url,
-      avatar_hint: dbProfile.avatar_hint,
-      points: dbProfile.points,
-      level: dbProfile.level,
-      progress_to_next_level: dbProfile.progress_to_next_level,
+      email: dbProfile.email || null,
+      name: dbProfile.name || null,
+      avatar_url: dbProfile.avatar_url || null,
+      avatar_hint: dbProfile.avatar_hint || null,
+      points: dbProfile.points || 0,
+      level: dbProfile.level || 1,
+      progress_to_next_level: dbProfile.progress_to_next_level || 0,
       badges: Array.isArray(dbProfile.badges) ? dbProfile.badges as Badge[] : [],
       rewards: Array.isArray(dbProfile.rewards) ? dbProfile.rewards as Reward[] : [],
-      student_goals: dbProfile.student_goals,
+      student_goals: dbProfile.student_goals || null,
       branch: dbProfile.branch as SubjectBranchEnum || null,
-      university: dbProfile.university,
-      major: dbProfile.major,
+      university: dbProfile.university || null,
+      major: dbProfile.major || null,
       active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null,
-      role: dbProfile.role as UserProfile['role'] || null,
-      youtube_channel_url: dbProfile.youtube_channel_url,
-      subjects_taught_id: dbProfile.subjects_taught_id, // Corrected from subjects_taught_ids
+      role: dbProfile.role as UserProfile['role'] || 'user', // Default to 'user' if null
+      youtube_channel_url: dbProfile.youtube_channel_url || null,
+      subjects_taught_id: dbProfile.subjects_taught_id || null, // Corrected field name
       created_at: dbProfile.created_at,
       updated_at: dbProfile.updated_at,
     };
   } catch (error) {
-    console.error("Error mapping DB profile to UserProfile:", error, "Profile data:", dbProfile);
+    console.error("[mapDbProfileToUserProfile] Error mapping DB profile to UserProfile. Profile data:", dbProfile, "Error:", error);
     return null;
   }
 };
@@ -889,33 +889,51 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  // Ensure this matches the DB column name and type. Assuming subjects_taught_id is the DB column.
-  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_id = userProfileData.subjects_taught_id;
+  if (userProfileData.subjects_taught_id !== undefined) dbData.subjects_taught_id = userProfileData.subjects_taught_id; // Corrected field name
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
   if (userProfileData.avatar_hint !== undefined) dbData.avatar_hint = userProfileData.avatar_hint;
   if (userProfileData.points !== undefined) dbData.points = userProfileData.points;
   if (userProfileData.level !== undefined) dbData.level = userProfileData.level;
   if (userProfileData.progress_to_next_level !== undefined) dbData.progress_to_next_level = userProfileData.progress_to_next_level;
-  if (userProfileData.badges !== undefined) dbData.badges = userProfileData.badges;
-  if (userProfileData.rewards !== undefined) dbData.rewards = userProfileData.rewards;
+  if (userProfileData.badges !== undefined) dbData.badges = Array.isArray(userProfileData.badges) ? userProfileData.badges : [];
+  if (userProfileData.rewards !== undefined) dbData.rewards = Array.isArray(userProfileData.rewards) ? userProfileData.rewards : [];
   if (userProfileData.student_goals !== undefined) dbData.student_goals = userProfileData.student_goals;
   if (userProfileData.branch !== undefined) dbData.branch = userProfileData.branch;
   if (userProfileData.university !== undefined) dbData.university = userProfileData.university;
   if (userProfileData.major !== undefined) dbData.major = userProfileData.major;
-  if (userProfileData.active_subscription !== undefined) dbData.active_subscription = userProfileData.active_subscription;
+  if (userProfileData.active_subscription !== undefined) dbData.active_subscription = typeof userProfileData.active_subscription === 'object' ? userProfileData.active_subscription : null;
   return dbData;
 };
 
 
 export const getUsers = async (): Promise<UserProfile[]> => {
-  const { data, error } = await supabase.from('profiles').select('*');
+  console.log("[getUsers] Attempting to fetch all profiles from Supabase...");
+  const { data: rawData, error } = await supabase.from('profiles').select('*');
+
   if (error) {
-    console.error("Supabase error fetching users:", error);
+    console.error("[getUsers] Supabase error fetching users/profiles:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    // It's crucial to throw the error so the calling function knows something went wrong.
+    // If RLS is blocking, the error might indicate that.
     throw error;
   }
-  if (!data) return [];
-  return data.map(mapDbProfileToUserProfile).filter(profile => profile !== null) as UserProfile[];
+
+  if (!rawData) {
+    console.warn("[getUsers] Supabase returned no data for profiles query.");
+    return [];
+  }
+
+  console.log(`[getUsers] Supabase returned ${rawData.length} raw profile(s). Data:`, JSON.stringify(rawData, null, 2));
+
+  const mappedProfiles = rawData.map(mapDbProfileToUserProfile).filter(profile => profile !== null) as UserProfile[];
+  console.log(`[getUsers] Mapped ${mappedProfiles.length} valid UserProfile object(s).`);
+  return mappedProfiles;
 };
+
 
 export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
@@ -1067,9 +1085,9 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
     .from('app_settings')
     .select('*')
     .limit(1)
-    .single();
+    .single(); // Expects a single row or no row
 
-  if (error && error.code !== 'PGRST116') {
+  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
     console.error("Supabase error fetching app settings:", error);
     throw error;
   }
@@ -1083,7 +1101,7 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
     appLogoUrl: data.app_logo_url,
     supportPhoneNumber: data.support_phone_number,
     supportEmail: data.support_email,
-    socialMediaLinks: data.social_media_links || [],
+    socialMediaLinks: Array.isArray(data.social_media_links) ? data.social_media_links : [],
     termsOfServiceUrl: data.terms_of_service_url,
     privacyPolicyUrl: data.privacy_policy_url,
     created_at: data.created_at,
@@ -1092,21 +1110,16 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
 };
 
 export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
-  const settingsToUpdate: any = {
-    app_name: settings.appName,
-    app_logo_url: settings.appLogoUrl,
-    support_phone_number: settings.supportPhoneNumber,
-    support_email: settings.supportEmail,
-    social_media_links: settings.socialMediaLinks,
-    terms_of_service_url: settings.termsOfServiceUrl,
-    privacy_policy_url: settings.privacyPolicyUrl,
-  };
+  const settingsToUpdate: any = {};
+  // Map camelCase to snake_case and handle undefined explicitly for Supabase
+  if (settings.hasOwnProperty('appName')) settingsToUpdate.app_name = settings.appName;
+  if (settings.hasOwnProperty('appLogoUrl')) settingsToUpdate.app_logo_url = settings.appLogoUrl;
+  if (settings.hasOwnProperty('supportPhoneNumber')) settingsToUpdate.support_phone_number = settings.supportPhoneNumber;
+  if (settings.hasOwnProperty('supportEmail')) settingsToUpdate.support_email = settings.supportEmail;
+  if (settings.hasOwnProperty('socialMediaLinks')) settingsToUpdate.social_media_links = settings.socialMediaLinks;
+  if (settings.hasOwnProperty('termsOfServiceUrl')) settingsToUpdate.terms_of_service_url = settings.termsOfServiceUrl;
+  if (settings.hasOwnProperty('privacyPolicyUrl')) settingsToUpdate.privacy_policy_url = settings.privacyPolicyUrl;
 
-  Object.keys(settingsToUpdate).forEach(key => {
-    if (settingsToUpdate[key] === undefined) {
-      delete settingsToUpdate[key];
-    }
-  });
 
   const existingSettings = await getAppSettings();
 
@@ -1121,9 +1134,12 @@ export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id'
       throw error;
     }
   } else {
+    // If no settings exist, insert them. This assumes your app_settings table has a primary key that can be omitted for auto-generation or is handled by Supabase policies/defaults.
+    // If 'id' is required for insert, you'd need to handle that, e.g., by providing a default ID or ensuring the table auto-generates it.
+    // For a settings table usually having one row, ensure your insert logic matches how you want to handle this single row (e.g. `upsert` if id is known/fixed`).
     const { error } = await supabase
       .from('app_settings')
-      .insert([settingsToUpdate]);
+      .insert([settingsToUpdate]); // Pass as an array for insert
 
     if (error) {
       console.error("Supabase error inserting app settings:", error);
@@ -1224,9 +1240,3 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
-
-
-
-
-
-
