@@ -1,7 +1,7 @@
 // src/app/dashboard/questions/new/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,7 +22,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { addQuestion, getSubjects, getTags, addTag as createTagInDb, getSubjectSections, getLessonsInSection } from '@/lib/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book, Search } from 'lucide-react';
 import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, SubjectSection, Lesson } from '@/types';
 import { arabicQuestionSanityCheck, ArabicQuestionSanityCheckOutput } from '@/ai/flows/arabic-question-sanity-check';
 import { suggestQuestionTags } from '@/ai/flows/suggest-question-tags-flow';
@@ -92,6 +92,9 @@ export default function NewQuestionPage() {
   
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [isFetchingTags, setIsFetchingTags] = useState(true);
+  const [newTagName, setNewTagName] = useState('');
+  const [isAddingNewTag, setIsAddingNewTag] = useState(false);
+  const [tagSearchTerm, setTagSearchTerm] = useState('');
   
   const router = useRouter();
   const { toast } = useToast();
@@ -120,25 +123,35 @@ export default function NewQuestionPage() {
   useEffect(() => {
     if (watchedQuestionType === 'mcq') {
       form.setValue('options', form.getValues('options')?.length >= 2 ? form.getValues('options') : [{ text: '' }, { text: '' }]);
+      // @ts-ignore
       form.setValue('correctBooleanAnswer', undefined);
       form.setValue('correctAnswers', undefined);
       form.setValue('modelAnswer', undefined);
     } else if (watchedQuestionType === 'true_false') {
+      // @ts-ignore
       form.setValue('options', undefined);
+      // @ts-ignore
       form.setValue('correctOptionIndex', undefined);
+      // @ts-ignore
       form.setValue('correctBooleanAnswer', undefined);
       form.setValue('correctAnswers', undefined);
       form.setValue('modelAnswer', undefined);
     } else if (watchedQuestionType === 'fill_in_the_blanks') {
       form.setValue('correctAnswers', form.getValues('correctAnswers')?.length >= 1 ? form.getValues('correctAnswers') : [{ text: '' }]);
+      // @ts-ignore
       form.setValue('options', undefined);
+      // @ts-ignore
       form.setValue('correctOptionIndex', undefined);
+      // @ts-ignore
       form.setValue('correctBooleanAnswer', undefined);
       form.setValue('modelAnswer', undefined);
     } else if (watchedQuestionType === 'short_answer') {
       form.setValue('modelAnswer', form.getValues('modelAnswer') || '');
+      // @ts-ignore
       form.setValue('options', undefined);
+      // @ts-ignore
       form.setValue('correctOptionIndex', undefined);
+      // @ts-ignore
       form.setValue('correctBooleanAnswer', undefined);
       form.setValue('correctAnswers', undefined);
     }
@@ -273,7 +286,7 @@ export default function NewQuestionPage() {
           }
         } else {
           const newTagId = await createTagInDb({ name: suggestedTagName.trim() });
-          const newTag: Tag = { id: newTagId, name: suggestedTagName.trim(), createdAt: new Date() as any, updatedAt: new Date() as any };
+          const newTag: Tag = { id: newTagId, name: suggestedTagName.trim(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
           setAvailableTags(prev => [...prev, newTag]);
           updatedTagIds.add(newTagId);
           newTagsCreatedCount++;
@@ -292,6 +305,42 @@ export default function NewQuestionPage() {
     }
   };
 
+  const handleAddNewTag = async () => {
+    const trimmedNewTagName = newTagName.trim();
+    if (!trimmedNewTagName) {
+      toast({ variant: 'destructive', title: 'اسم التصنيف فارغ', description: 'الرجاء إدخال اسم للتصنيف الجديد.' });
+      return;
+    }
+    if (availableTags.some(tag => tag.name.toLowerCase() === trimmedNewTagName.toLowerCase())) {
+      toast({ variant: 'destructive', title: 'تصنيف مكرر', description: 'يوجد تصنيف بهذا الاسم بالفعل.' });
+      return;
+    }
+    setIsAddingNewTag(true);
+    try {
+      const newTagId = await createTagInDb({ name: trimmedNewTagName });
+      const newTagObject: Tag = { id: newTagId, name: trimmedNewTagName, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      setAvailableTags(prev => [...prev, newTagObject]);
+      const currentSelectedTagIds = form.getValues("tagIds") || [];
+      form.setValue("tagIds", [...currentSelectedTagIds, newTagId]);
+      setNewTagName('');
+      toast({ title: "تم إضافة التصنيف", description: `تم إضافة التصنيف "${trimmedNewTagName}" واختياره.` });
+    } catch (error) {
+      console.error("Error adding new tag:", error);
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة التصنيف الجديد." });
+    } finally {
+      setIsAddingNewTag(false);
+    }
+  };
+
+  const filteredAvailableTags = useMemo(() => {
+    if (!tagSearchTerm.trim()) {
+      return availableTags;
+    }
+    return availableTags.filter(tag =>
+      tag.name.toLowerCase().includes(tagSearchTerm.toLowerCase())
+    );
+  }, [availableTags, tagSearchTerm]);
+
   const onSubmit = async (data: QuestionFormValues) => {
     setIsLoading(true);
     try {
@@ -303,8 +352,9 @@ export default function NewQuestionPage() {
       }
       let questionPayload: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>;
       if (data.questionType === 'mcq') {
-        const optionsWithIds: Option[] = data.options.map((opt, index) => ({ id: `option-${index + 1}-${Date.now()}`, text: opt.text }));
-        const correctOptionId = optionsWithIds[parseInt(data.correctOptionIndex)].id;
+        const mcqData = data as Extract<QuestionFormValues, { questionType: 'mcq' }>;
+        const optionsWithIds: Option[] = mcqData.options.map((opt, index) => ({ id: `option-${index + 1}-${Date.now()}`, text: opt.text }));
+        const correctOptionId = optionsWithIds[parseInt(mcqData.correctOptionIndex)].id;
         questionPayload = {
           questionType: 'mcq', questionText: data.questionText, options: optionsWithIds, correctOptionId: correctOptionId,
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
@@ -312,22 +362,25 @@ export default function NewQuestionPage() {
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       } else if (data.questionType === 'true_false') {
+        const tfData = data as Extract<QuestionFormValues, { questionType: 'true_false' }>;
         questionPayload = {
           questionType: 'true_false', questionText: data.questionText, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
-          correctOptionId: data.correctBooleanAnswer, difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
+          correctOptionId: tfData.correctBooleanAnswer, difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       } else if (data.questionType === 'fill_in_the_blanks') {
+        const fitbData = data as Extract<QuestionFormValues, { questionType: 'fill_in_the_blanks' }>;
         questionPayload = {
-          questionType: 'fill_in_the_blanks', questionText: data.questionText, correctAnswers: data.correctAnswers.map(ans => ans.text),
+          questionType: 'fill_in_the_blanks', questionText: data.questionText, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       } else { 
+         const saData = data as Extract<QuestionFormValues, { questionType: 'short_answer' }>;
          questionPayload = {
-          questionType: 'short_answer', questionText: data.questionText, modelAnswer: data.modelAnswer || undefined,
+          questionType: 'short_answer', questionText: data.questionText, modelAnswer: saData.modelAnswer || undefined,
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
@@ -717,19 +770,59 @@ export default function NewQuestionPage() {
                     </FormLabel>
                     <FormDescription>اختر التصنيفات ذات الصلة بهذا السؤال.</FormDescription>
                   </div>
+
+                  <div className="space-y-3 my-4">
+                    <div className="flex items-end gap-2">
+                      <div className="flex-grow">
+                        <Label htmlFor="new-tag-name-main-q" className="text-sm sr-only">إضافة تصنيف جديد</Label>
+                        <Input
+                          id="new-tag-name-main-q"
+                          value={newTagName}
+                          onChange={(e) => setNewTagName(e.target.value)}
+                          placeholder="أو أضف تصنيفًا جديدًا هنا..."
+                          className="text-sm h-9"
+                          disabled={isAddingNewTag}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddNewTag}
+                        disabled={isAddingNewTag || !newTagName.trim()}
+                        className="h-9"
+                      >
+                        {isAddingNewTag ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-1 h-4 w-4" />}
+                        إضافة
+                      </Button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        placeholder="ابحث عن تصنيف..."
+                        value={tagSearchTerm}
+                        onChange={(e) => setTagSearchTerm(e.target.value)}
+                        className="text-sm h-9 pl-10 rtl:pr-10"
+                      />
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground rtl:right-3 rtl:left-auto" />
+                    </div>
+                  </div>
+                  
                   {isFetchingTags ? (
                     <div className="flex items-center justify-center p-2">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         <span className="ml-2 rtl:mr-2">جاري تحميل التصنيفات...</span>
                     </div>
-                  ) : availableTags.length === 0 ? (
+                  ) : filteredAvailableTags.length === 0 && !tagSearchTerm ? (
                     <p className="text-sm text-muted-foreground">
-                      لا توجد تصنيفات متاحة. يمكنك إضافة تصنيفات من <a href="/dashboard/tags" className="text-primary hover:underline">صفحة التصنيفات</a>.
+                      لا توجد تصنيفات متاحة. أضف تصنيفًا جديدًا أعلاه أو من <a href="/dashboard/tags" className="text-primary hover:underline">صفحة التصنيفات</a>.
                     </p>
+                  ) : filteredAvailableTags.length === 0 && tagSearchTerm ? (
+                     <p className="text-sm text-muted-foreground text-center py-2">لا توجد تصنيفات تطابق بحثك.</p>
                   ) : (
                     <ScrollArea className="h-40 rounded-md border p-3">
                       <div className="space-y-2">
-                        {availableTags.map((tag) => (
+                        {filteredAvailableTags.map((tag) => (
                           <FormField
                             key={tag.id}
                             control={form.control}
@@ -763,7 +856,7 @@ export default function NewQuestionPage() {
 
             <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>إلغاء</Button>
-                <Button type="submit" disabled={isLoading || isAiChecking || !allDataFetched || availableSubjects.length === 0 || isSuggestingTags}>
+                <Button type="submit" disabled={isLoading || isAiChecking || !allDataFetched || availableSubjects.length === 0 || isSuggestingTags || isAddingNewTag}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                   إضافة السؤال
                 </Button>
@@ -774,3 +867,4 @@ export default function NewQuestionPage() {
     </Card>
   );
 }
+
