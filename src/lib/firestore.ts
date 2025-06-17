@@ -223,7 +223,7 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
 
   if (error) {
     console.info("Supabase error details for addQuestion will follow on the next line(s).");
-    console.error(error);
+    console.error(error); // Log the raw error object
     try {
       console.error("Stringified Supabase error in addQuestion:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -951,7 +951,53 @@ export const updateTag = async (id: string, data: Partial<Omit<Tag, 'id' | 'crea
 export const deleteTag = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteTag"); };
 
 // --- Exam Attempts ---
-export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExamAttempts"); };
+export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> => {
+  let query = supabase.from('exam_attempts').select(`
+    id,
+    student_id,
+    profiles ( name, email ), 
+    exam_id,
+    exams ( title ),
+    score,
+    total_possible_score,
+    percentage,
+    answers,
+    started_at,
+    completed_at,
+    created_at,
+    updated_at
+  `); // Join with profiles and exams
+
+  if (examId) {
+    query = query.eq('exam_id', examId);
+  }
+
+  const { data, error } = await query.order('completed_at', { ascending: false });
+
+  if (error) {
+    console.error("Supabase error fetching exam attempts:", error);
+    throw error;
+  }
+  if (!data) return [];
+
+  return data.map((attempt: any) => ({
+    id: String(attempt.id),
+    studentId: attempt.student_id,
+    // Access joined data carefully
+    studentName: attempt.profiles?.name || attempt.profiles?.email || 'Unknown Student', 
+    examId: attempt.exam_id,
+    examTitle: attempt.exams?.title || 'Unknown Exam',
+    score: attempt.score,
+    totalPossibleScore: attempt.total_possible_score,
+    percentage: attempt.percentage,
+    answers: attempt.answers as AnswerAttempt[],
+    startedAt: attempt.started_at,
+    completedAt: attempt.completed_at,
+    created_at: attempt.created_at,
+    updated_at: attempt.updated_at,
+  })) as ExamAttempt[];
+};
+
 
 // --- App Settings ---
 export const getAppSettings = async (): Promise<AppSettings | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAppSettings"); };
