@@ -17,13 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Added RadioGroupItem
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { addQuestion, getSubjectById } from '@/lib/firestore';
+import { addQuestion, getSubjectById, getTags } from '@/lib/firestore'; // Added getTags
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
-import type { Option, Question, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion } from '@/types';
+import { PlusCircle, Trash2, Loader2, TagsIcon } from 'lucide-react'; // Added TagsIcon
+import type { Option, Question, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, Tag } from '@/types'; // Added Tag
+import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
 
 // Schemas for different parts of the lesson question form
 const lessonOptionSchema = z.object({
@@ -38,6 +40,7 @@ const lessonCorrectAnswerSchema = z.object({
 const lessonBaseQuestionSchema = z.object({
   questionText: z.string().min(10, "نص السؤال يجب أن يكون 10 أحرف على الأقل."),
   difficulty: z.enum(['easy', 'medium', 'hard'], { required_error: "الرجاء اختيار مستوى الصعوبة." }),
+  tagIds: z.array(z.string()).optional().default([]), // Added tagIds
   // subjectId and lessonId are passed as props, not part of form data directly
 });
 
@@ -89,6 +92,8 @@ export default function AddLessonQuestionForm({
 }: AddLessonQuestionFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [subjectName, setSubjectName] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [isFetchingTags, setIsFetchingTags] = useState(true);
   const { toast } = useToast();
 
   const form = useForm<LessonQuestionFormValues>({
@@ -96,17 +101,18 @@ export default function AddLessonQuestionForm({
     defaultValues: {
       questionText: '',
       difficulty: 'medium',
-      questionType: 'mcq', // Default to MCQ
+      questionType: 'mcq',
+      tagIds: [], // Initialize tagIds
       // @ts-ignore
-      options: [{ text: '' }, { text: '' }], // Default for MCQ
+      options: [{ text: '' }, { text: '' }],
       // @ts-ignore
-      correctOptionIndex: undefined, // Default for MCQ
+      correctOptionIndex: undefined,
       // @ts-ignore
-      correctBooleanAnswer: undefined, // Default for True/False
+      correctBooleanAnswer: undefined,
       // @ts-ignore
-      correctAnswers: [{ text: '' }], // Default for Fill in the Blanks
+      correctAnswers: [{ text: '' }],
       // @ts-ignore
-      modelAnswer: '', // Default for Short Answer
+      modelAnswer: '',
     },
   });
 
@@ -125,17 +131,31 @@ export default function AddLessonQuestionForm({
   });
 
   useEffect(() => {
-    const fetchSubjectName = async () => {
+    const fetchInitialData = async () => {
+      setIsFetchingTags(true);
       if (subjectId) {
-        const subjectData = await getSubjectById(subjectId);
-        setSubjectName(subjectData?.name || 'مادة غير معروفة');
+        try {
+            const subjectData = await getSubjectById(subjectId);
+            setSubjectName(subjectData?.name || 'مادة غير معروفة');
+        } catch (error) {
+            console.error("Error fetching subject name:", error);
+            setSubjectName('خطأ في تحميل اسم المادة');
+        }
+      }
+      try {
+        const tags = await getTags();
+        setAvailableTags(tags);
+      } catch (error) {
+        console.error("Error fetching tags:", error);
+        toast({ variant: "destructive", title: "خطأ في جلب التصنيفات" });
+      } finally {
+        setIsFetchingTags(false);
       }
     };
-    fetchSubjectName();
-  }, [subjectId]);
+    fetchInitialData();
+  }, [subjectId, toast]);
 
   useEffect(() => {
-    // Reset specific fields when questionType changes to ensure clean state
     if (watchedQuestionType === 'mcq') {
       // @ts-ignore
       if (!form.getValues('options') || form.getValues('options')?.length < 2) {
@@ -193,28 +213,28 @@ export default function AddLessonQuestionForm({
         questionPayload = {
           questionType: 'mcq', questionText: mcqData.questionText, options: optionsWithIds, correctOptionId: correctOptionId,
           difficulty: mcqData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
-          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: [],
+          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else if (formData.questionType === 'true_false') {
         const tfData = formData as Extract<LessonQuestionFormValues, { questionType: 'true_false' }>;
         questionPayload = {
           questionType: 'true_false', questionText: tfData.questionText, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
           correctOptionId: tfData.correctBooleanAnswer, difficulty: tfData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
-          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: [],
+          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else if (formData.questionType === 'fill_in_the_blanks') {
         const fitbData = formData as Extract<LessonQuestionFormValues, { questionType: 'fill_in_the_blanks' }>;
         questionPayload = {
           questionType: 'fill_in_the_blanks', questionText: fitbData.questionText, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
           difficulty: fitbData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
-          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: [],
+          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else if (formData.questionType === 'short_answer') {
         const saData = formData as Extract<LessonQuestionFormValues, { questionType: 'short_answer' }>;
         questionPayload = {
           questionType: 'short_answer', questionText: saData.questionText, modelAnswer: saData.modelAnswer || undefined,
           difficulty: saData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
-          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: [],
+          lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else {
         console.error("Invalid question type in form data:", formData);
@@ -229,10 +249,11 @@ export default function AddLessonQuestionForm({
         title: "نجاح!",
         description: "تمت إضافة السؤال الجديد وربطه بالدرس بنجاح.",
       });
-      form.reset({ // Reset with default type
+      form.reset({
         questionText: '',
         difficulty: 'medium',
         questionType: 'mcq',
+        tagIds: [],
         // @ts-ignore
         options: [{ text: '' }, { text: '' }],
         // @ts-ignore
@@ -512,10 +533,67 @@ export default function AddLessonQuestionForm({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="tagIds"
+              render={() => (
+                <FormItem>
+                  <div className="mb-1">
+                    <FormLabel className="text-xs flex items-center">
+                      <TagsIcon className="h-3.5 w-3.5 mr-1 rtl:ml-1 rtl:mr-0 text-primary" />
+                      التصنيفات (اختياري)
+                    </FormLabel>
+                  </div>
+                  {isFetchingTags ? (
+                    <div className="flex items-center justify-center p-1">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="ml-1 rtl:mr-1 text-xs text-muted-foreground">جاري تحميل التصنيفات...</span>
+                    </div>
+                  ) : availableTags.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      لا توجد تصنيفات. أضف من <a href="/dashboard/tags" className="text-primary hover:underline">صفحة التصنيفات</a>.
+                    </p>
+                  ) : (
+                    <ScrollArea className="h-28 rounded-md border p-2">
+                      <div className="space-y-1">
+                        {availableTags.map((tag) => (
+                          <FormField
+                            key={tag.id}
+                            control={form.control}
+                            name="tagIds"
+                            render={({ field }) => {
+                              return (
+                                <FormItem key={tag.id} className="flex flex-row items-center space-x-1.5 space-y-0 rtl:space-x-reverse">
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(tag.id!)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...(field.value || []), tag.id!])
+                                          : field.onChange((field.value || []).filter((value) => value !== tag.id));
+                                      }}
+                                      className="h-3.5 w-3.5"
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="font-normal text-xs cursor-pointer">{tag.name}</FormLabel>
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <p className="text-xs text-muted-foreground">
               المادة: {subjectName || 'جاري التحميل...'} (سيتم ربط السؤال بهذه المادة والدرس الحالي).
             </p>
-            <Button type="submit" disabled={isLoading} size="sm">
+            <Button type="submit" disabled={isLoading || isFetchingTags} size="sm">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
               إضافة السؤال للدرس
             </Button>
