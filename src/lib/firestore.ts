@@ -1,4 +1,3 @@
-
 // src/lib/firestore.ts
 // IMPORTANT: Most functions in this file need to be reimplemented to use Supabase.
 // Implementations for getUsers, getUserByEmail, updateUser, getTeachers, getSubjects, getTags, getQuestions, getExams, getNewsArticles are provided.
@@ -644,18 +643,23 @@ export const updateAccessCode = async (id: string, data: Partial<Omit<AccessCode
   if (data.name !== undefined) dbData.name = data.name;
   if (data.encodedValue !== undefined) dbData.encoded_value = data.encodedValue;
   if (data.type !== undefined) dbData.type = data.type;
-  if (data.subjectId !== undefined) dbData.subject_id = data.subjectId;
-  if (data.subjectName !== undefined) dbData.subject_name = data.subjectName;
+  if (data.hasOwnProperty('subjectId')) dbData.subject_id = data.subjectId;
+  if (data.hasOwnProperty('subjectName')) dbData.subject_name = data.subjectName;
   if (data.validFrom !== undefined) dbData.valid_from = data.validFrom;
   if (data.validUntil !== undefined) dbData.valid_until = data.validUntil;
   if (data.isActive !== undefined) dbData.is_active = data.isActive;
   if (data.isUsed !== undefined) dbData.is_used = data.isUsed;
-  if (data.usedAt !== undefined) dbData.used_at = data.usedAt;
-  if (data.usedByUserId !== undefined) dbData.used_by_user_id = data.usedByUserId;
+  if (data.hasOwnProperty('usedAt')) dbData.used_at = data.usedAt;
+  if (data.hasOwnProperty('usedByUserId')) dbData.used_by_user_id = data.usedByUserId;
 
   const { error } = await supabase.from('activation_codes').update(dbData).eq('id', id);
   if (error) {
     console.error("Supabase error updating access code:", error);
+    try {
+      console.error("Stringified Supabase error in updateAccessCode:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("Could not stringify Supabase error in updateAccessCode:", e);
+    }
     throw error;
   }
 };
@@ -874,7 +878,7 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
       active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null,
       role: dbProfile.role as UserProfile['role'] || 'user', // Default to 'user' if null
       youtube_channel_url: dbProfile.youtube_channel_url || null,
-      subjects_taught_id: dbProfile.subjects_taught_id || null, // Corrected field name
+      subjects_taught_id: dbProfile.subjects_taught_id || null, // Corrected to singular form
       created_at: dbProfile.created_at,
       updated_at: dbProfile.updated_at,
     };
@@ -917,8 +921,6 @@ export const getUsers = async (): Promise<UserProfile[]> => {
       hint: error.hint,
       code: error.code,
     });
-    // It's crucial to throw the error so the calling function knows something went wrong.
-    // If RLS is blocking, the error might indicate that.
     throw error;
   }
 
@@ -927,9 +929,29 @@ export const getUsers = async (): Promise<UserProfile[]> => {
     return [];
   }
 
-  console.log(`[getUsers] Supabase returned ${rawData.length} raw profile(s). Data:`, JSON.stringify(rawData, null, 2));
+  console.log(
+    `[getUsers] Supabase returned ${rawData.length} raw profile(s).`,
+    `First item (if any): ${rawData.length > 0 ? JSON.stringify(rawData[0], null, 2) : "No items returned"}`
+  );
+  if (rawData.length > 1) {
+      console.log(`[getUsers] Second item (if any): ${JSON.stringify(rawData[1], null, 2)}`);
+  }
 
-  const mappedProfiles = rawData.map(mapDbProfileToUserProfile).filter(profile => profile !== null) as UserProfile[];
+
+  const mappedProfiles = rawData.map(profile => {
+    // Moving the try-catch and null check inside the map for better individual error handling
+    if (!profile || !profile.id) {
+      console.warn("[getUsers -> map] Skipping a raw profile due to missing id. Profile data:", profile);
+      return null; // Will be filtered out
+    }
+    try {
+      return mapDbProfileToUserProfile(profile);
+    } catch (mapError) {
+      console.error("[getUsers -> map] Error mapping a raw profile. Profile data:", profile, "Error:", mapError);
+      return null; // Will be filtered out
+    }
+  }).filter(profile => profile !== null) as UserProfile[];
+
   console.log(`[getUsers] Mapped ${mappedProfiles.length} valid UserProfile object(s).`);
   return mappedProfiles;
 };
@@ -1070,7 +1092,7 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
     score: attempt.score,
     totalPossibleScore: attempt.total_possible_score,
     percentage: attempt.percentage,
-    answers: attempt.answers as AnswerAttempt[],
+    answers: attempt.answers as AnswerAttempt[], // You might need to cast/validate this properly
     startedAt: attempt.started_at,
     completedAt: attempt.completed_at,
     created_at: attempt.created_at,
@@ -1168,6 +1190,11 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
 
   if (error) {
     console.error("Supabase error adding announcement:", error);
+    try {
+      console.error("Stringified Supabase error in addAnnouncement:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("Could not stringify Supabase error in addAnnouncement:", e);
+    }
     throw error;
   }
   if (!newAnnouncement || !newAnnouncement.id) {
