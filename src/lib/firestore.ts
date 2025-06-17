@@ -1,3 +1,4 @@
+
 // src/lib/firestore.ts
 // IMPORTANT: Most functions in this file need to be reimplemented to use Supabase.
 // Implementations for getUsers, getUserByEmail, updateUser, getTeachers, getSubjects, getTags, getQuestions, getExams, getNewsArticles are provided.
@@ -1076,7 +1077,53 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
     updated_at: data.updated_at,
   } as AppSettings;
 };
-export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAppSettings"); };
+
+export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+  const settingsToUpdate: any = {
+    app_name: settings.appName,
+    app_logo_url: settings.appLogoUrl,
+    support_phone_number: settings.supportPhoneNumber,
+    support_email: settings.supportEmail,
+    social_media_links: settings.socialMediaLinks,
+    terms_of_service_url: settings.termsOfServiceUrl,
+    privacy_policy_url: settings.privacyPolicyUrl,
+  };
+
+  Object.keys(settingsToUpdate).forEach(key => {
+    if (settingsToUpdate[key] === undefined) {
+      delete settingsToUpdate[key];
+    }
+  });
+
+  const existingSettings = await getAppSettings();
+
+  if (existingSettings && existingSettings.id) {
+    const { error } = await supabase
+      .from('app_settings')
+      .update(settingsToUpdate)
+      .eq('id', existingSettings.id);
+
+    if (error) {
+      console.error("Supabase error updating app settings:", error);
+      throw error;
+    }
+  } else {
+    // If no settings exist, insert them. This assumes your 'app_settings' table
+    // has an auto-generated 'id' or a way to handle inserts without specifying one.
+    // If 'id' is required for insert and not auto-gen, this will fail.
+    // A common pattern is to have a single row with a fixed known ID (e.g., 1)
+    // or a unique 'key' column (e.g., 'current_settings').
+    const { error } = await supabase
+      .from('app_settings')
+      .insert([settingsToUpdate]); // insert as an array
+
+    if (error) {
+      console.error("Supabase error inserting app settings:", error);
+      throw error;
+    }
+  }
+};
+
 
 // --- Exam Titles (Helper) ---
 export const getExamTitleById = async (examId: string): Promise<string | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getExamTitleById"); };
@@ -1169,6 +1216,7 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
 
 
 
