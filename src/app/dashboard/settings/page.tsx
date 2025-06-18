@@ -11,13 +11,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'; // Import Select components
 import { useToast } from '@/hooks/use-toast';
 import { getAppSettings, updateAppSettings } from '@/lib/firestore';
-import type { AppSettings, SocialMediaLink } from '@/types';
+import type { AppSettings, SocialMediaLink, SocialPlatform } from '@/types';
 import { Loader2, Save, Settings, PlusCircle, Trash2 } from 'lucide-react';
 
+const platformValues = [
+  "Facebook", "whatsapp", "Instagram", "Telegram", "Twitter", 
+  "LinkedIn", "YouTube", "TikTok", "Discord"
+] as const; // Define platform names for Zod enum
+
 const socialMediaLinkSchema = z.object({
-  platform: z.string().min(1, "Platform name is required."),
+  platform: z.enum(platformValues, { required_error: "Platform selection is required." }),
   url: z.string().url({ message: "Please enter a valid URL." }),
 });
 
@@ -33,8 +45,16 @@ const appSettingsSchema = z.object({
 
 type AppSettingsFormValues = z.infer<typeof appSettingsSchema>;
 
-const socialPlatformOptions: SocialMediaLink['platform'][] = [
-  'facebook', 'instagram', 'x_twitter', 'youtube', 'linkedin', 'tiktok'
+const socialPlatformOptions: { label: string; value: SocialPlatform }[] = [
+  { label: "Facebook", value: "Facebook" },
+  { label: "WhatsApp", value: "whatsapp" },
+  { label: "Instagram", value: "Instagram" },
+  { label: "Telegram", value: "Telegram" },
+  { label: "Twitter / X", value: "Twitter" },
+  { label: "LinkedIn", value: "LinkedIn" },
+  { label: "YouTube", value: "YouTube" },
+  { label: "TikTok", value: "TikTok" },
+  { label: "Discord", value: "Discord" },
 ];
 
 
@@ -213,7 +233,20 @@ export default function ApplicationSettingsPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel htmlFor={`socialMediaLinks.${index}.platform`} className="text-sm">المنصة</FormLabel>
-                             <Input placeholder="مثال: Facebook, X (Twitter)" {...field} />
+                             <Select onValueChange={field.onChange} value={field.value || ''}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="اختر منصة" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {socialPlatformOptions.map(option => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}

@@ -272,8 +272,20 @@ export interface AdminNotification {
   createdAt: string; // ISO Date string
 }
 
+export type SocialPlatform = 
+  | 'Facebook' 
+  | 'whatsapp' 
+  | 'Instagram' 
+  | 'Telegram' 
+  | 'Twitter' 
+  | 'LinkedIn' 
+  | 'YouTube' 
+  | 'TikTok' 
+  | 'Discord'
+  | ''; // Added empty string to allow for placeholder selection
+
 export interface SocialMediaLink {
-  platform: 'facebook' | 'instagram' | 'x_twitter' | 'youtube' | 'linkedin' | 'tiktok' | string;
+  platform: SocialPlatform;
   url: string;
 }
 
