@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import SubjectDetails from '@/components/subjects/SubjectDetails'; // Import SubjectDetails
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { List, Loader2, BookOpenCheck, Edit3, Trash2, PlusCircle, Image as ImageIcon, HelpCircle, ChevronDown, ChevronUp, Eye, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { List, Loader2, BookOpenCheck, Edit3, Trash2, PlusCircle, Image as ImageIcon, HelpCircle, AlertTriangle } from 'lucide-react'; // Removed ChevronDown, ChevronUp
 import * as LucideIcons from 'lucide-react'; 
 import { getSubjects, deleteSubject as deleteSubjectFromDb } from '@/lib/firestore';
 import type { Subject, SubjectBranch } from '@/types';
@@ -23,9 +23,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription as UiDialogDescription, 
+  DialogHeader as UiDialogHeader,
+  DialogTitle as UiDialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import NextImage from 'next/image';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert imports
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const branchTranslations: Record<SubjectBranch, string> = {
   general: "عام",
@@ -45,9 +53,8 @@ const IconComponent = ({ iconName, ...props }: { iconName: string } & LucideIcon
 export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null); // New state for fetch errors
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchSubjectsList = useCallback(async () => {
@@ -85,9 +92,6 @@ export default function SubjectsPage() {
     try {
       await deleteSubjectFromDb(deletingSubjectId);
       setSubjects(subjects.filter(s => s.id !== deletingSubjectId));
-      if (selectedSubjectId === deletingSubjectId) {
-        setSelectedSubjectId(null); 
-      }
       toast({
         title: "نجاح",
         description: "تم حذف المادة بنجاح.",
@@ -103,11 +107,6 @@ export default function SubjectsPage() {
       setDeletingSubjectId(null);
     }
   };
-
-  const toggleSubjectDetails = (subjectId: string) => {
-    setSelectedSubjectId(prevId => (prevId === subjectId ? null : subjectId));
-  };
-
 
   return (
     <div className="space-y-8">
@@ -136,7 +135,7 @@ export default function SubjectsPage() {
             قائمة المواد الدراسية
           </CardTitle>
           <CardDescription>
-            تصفح جميع المواد الدراسية المتاحة. انقر على "عرض التفاصيل" لإدارة الأقسام والدروس.
+            تصفح جميع المواد الدراسية المتاحة. انقر على "عرض التفاصيل" لإدارة الأقسام والدروس في نافذة منبثقة.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -177,7 +176,8 @@ export default function SubjectsPage() {
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                           className="object-cover"
-                          data-ai-hint={subject.imageHint || 'education study'} 
+                          data-ai-hint={subject.imageHint || 'education study'}
+                          key={subject.image || 'subject-image-key'}
                         />
                       </div>
                     ) : (
@@ -200,10 +200,25 @@ export default function SubjectsPage() {
                       )}
                     </CardHeader>
                     <CardFooter className="border-t p-4 flex justify-between items-center">
-                       <Button variant="ghost" onClick={() => toggleSubjectDetails(subject.id!)} size="sm" className="text-primary hover:text-primary/80">
-                          {selectedSubjectId === subject.id ? <ChevronUp className="mr-1 h-4 w-4 rtl:ml-1 rtl:mr-0" /> : <ChevronDown className="mr-1 h-4 w-4 rtl:ml-1 rtl:mr-0" />}
-                          {selectedSubjectId === subject.id ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
-                       </Button>
+                       <Dialog>
+                        <DialogTrigger asChild>
+                           <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                              عرض التفاصيل
+                           </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl md:max-w-3xl lg:max-w-4xl h-[90vh] flex flex-col" dir="rtl">
+                           <UiDialogHeader className="text-right flex-shrink-0 px-6 pt-6 pb-4 border-b">
+                            <UiDialogTitle className="text-xl">تفاصيل المادة: {subject.name}</UiDialogTitle>
+                            <UiDialogDescription>
+                              إدارة الأقسام والدروس والمرفقات والأسئلة لهذه المادة.
+                            </UiDialogDescription>
+                          </UiDialogHeader>
+                          <div className="flex-grow overflow-y-auto p-6">
+                            <SubjectDetails subjectId={subject.id!} subjectName={subject.name} />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
                       <div className="flex space-x-2 rtl:space-x-reverse">
                         <Button variant="outline" size="sm" asChild>
                           <Link href={`/dashboard/subjects/edit/${subject.id}`}> 
@@ -216,7 +231,7 @@ export default function SubjectsPage() {
                                 <Trash2 className="mr-1 h-4 w-4 rtl:ml-1 rtl:mr-0" /> حذف
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent dir="rtl">
                               <AlertDialogHeader className="text-right">
                                 <AlertDialogTitle>هل أنت متأكد من الحذف؟</AlertDialogTitle>
                                 <AlertDialogDescription>
@@ -232,7 +247,6 @@ export default function SubjectsPage() {
                       </div>
                     </CardFooter>
                   </Card>
-                  {selectedSubjectId === subject.id && <SubjectDetails subjectId={subject.id!} subjectName={subject.name} />}
                 </div>
               ))}
             </div>
@@ -242,5 +256,6 @@ export default function SubjectsPage() {
     </div>
   );
 }
+    
 
     
