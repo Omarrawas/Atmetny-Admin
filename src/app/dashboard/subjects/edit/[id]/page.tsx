@@ -42,6 +42,25 @@ const branchOptions: { label: string; value: SubjectBranch }[] = [
   { label: "أدبي", value: "literary" },
 ];
 
+// Helper function to check if a string is a valid absolute URL
+const isValidUrl = (urlString?: string | null): boolean => {
+  if (!urlString || urlString.trim() === '') {
+    return false;
+  }
+  try {
+    // Check if it's a data URI first, which is valid for NextImage
+    if (urlString.startsWith('data:image/')) {
+        return true;
+    }
+    // Otherwise, try to parse as a standard URL
+    const url = new URL(urlString);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (e) {
+    return false;
+  }
+};
+
+
 export default function EditSubjectPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -238,12 +257,21 @@ export default function EditSubjectPage() {
 
             <FormItem>
               <FormLabel>صورة المادة الحالية (رابط URL)</FormLabel>
-              {currentImageUrl && currentImageUrl.trim() !== '' ? (
+              {isValidUrl(currentImageUrl) ? (
                 <div className="mt-2 space-y-2">
                   <NextImage src={currentImageUrl} alt="الصورة الحالية للمادة" width={128} height={128} className="h-32 w-auto rounded-md object-cover border" data-ai-hint={form.getValues("imageHint") || "subject education"} />
                   <Button type="button" variant="outline" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading}>
                     <Trash2 className="mr-2 h-4 w-4" /> مسح رابط الصورة
                   </Button>
+                </div>
+              ) : currentImageUrl && currentImageUrl.trim() !== '' ? (
+                 <div className="mt-2 space-y-2">
+                    <p className="text-sm text-destructive p-2 border border-destructive/50 rounded-md bg-destructive/10">
+                        رابط الصورة الحالي غير صالح للعرض: "{currentImageUrl}". يرجى إدخال رابط URL صحيح أو مسح الحقل.
+                    </p>
+                    <Button type="button" variant="outline" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading}>
+                        <Trash2 className="mr-2 h-4 w-4" /> مسح رابط الصورة
+                    </Button>
                 </div>
               ) : <p className="text-sm text-muted-foreground mt-1">لا يوجد رابط صورة حالي.</p>}
             </FormItem>
@@ -253,7 +281,7 @@ export default function EditSubjectPage() {
               name="image"
               render={({ field }) => ( 
                 <FormItem>
-                  <FormLabel>{currentImageUrl && currentImageUrl.trim() !== '' ? 'تغيير رابط صورة المادة' : 'إضافة رابط صورة للمادة'} (اختياري)</FormLabel>
+                  <FormLabel>{isValidUrl(currentImageUrl) ? 'تغيير رابط صورة المادة' : 'إضافة رابط صورة للمادة'} (اختياري)</FormLabel>
                   <FormControl>
                     <Input 
                       type="url" 
