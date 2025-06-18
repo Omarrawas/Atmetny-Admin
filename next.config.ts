@@ -17,11 +17,11 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-      { // Added for Supabase Storage
+      { // Updated for Supabase Storage to include signed URLs
         protocol: 'https',
         hostname: 'wlinjhdynghwfzoegvdi.supabase.co', // Your Supabase project URL hostname
         port: '',
-        pathname: '/storage/v1/object/public/**', // Adjust path if your buckets are structured differently or private
+        pathname: '/storage/v1/object/**', // Made more general to cover /public/ and /sign/ paths
       },
       { // Added for th.bing.com
         protocol: 'https',
