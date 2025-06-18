@@ -15,18 +15,19 @@ import {
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone } from 'lucide-react';
+import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone, MessageSquare } from 'lucide-react'; // Added MessageSquare
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/subjects', label: 'Subjects', icon: BookOpenCheck },
   { href: '/dashboard/questions', label: 'Questions', icon: FileQuestion },
-  { href: '/dashboard/tags', label: 'Tags', icon: Tags }, 
+  { href: '/dashboard/tags', label: 'Tags', icon: Tags },
   { href: '/dashboard/exams', label: 'Exams', icon: ClipboardList },
   { href: '/dashboard/analytics/exams', label: 'Exam Analytics', icon: BarChart3 },
   { href: '/dashboard/news', label: 'News', icon: Newspaper },
-  { href: '/dashboard/announcements', label: 'Announcements', icon: Megaphone }, // New Announcements link
+  { href: '/dashboard/announcements', label: 'Announcements', icon: Megaphone },
+  { href: '/dashboard/community', label: 'Community', icon: MessageSquare }, // New Community link
   { href: '/dashboard/qr-codes', label: 'QR Codes', icon: QrCode },
   { href: '/dashboard/teachers', label: 'Teachers', icon: Users2 },
   { href: '/dashboard/export', label: 'Export Data', icon: Download },
