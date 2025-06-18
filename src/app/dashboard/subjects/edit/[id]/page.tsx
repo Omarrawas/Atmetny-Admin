@@ -42,7 +42,7 @@ const branchOptions: { label: string; value: SubjectBranch }[] = [
   { label: "أدبي", value: "literary" },
 ];
 
-// Helper function to check if a string is a valid absolute URL
+// Helper function to check if a string is a valid absolute URL or data URI
 const isValidUrl = (urlString?: string | null): boolean => {
   if (!urlString || urlString.trim() === '') {
     return false;
@@ -259,7 +259,7 @@ export default function EditSubjectPage() {
               <FormLabel>صورة المادة الحالية (رابط URL)</FormLabel>
               {isValidUrl(currentImageUrl) ? (
                 <div className="mt-2 space-y-2">
-                  <NextImage src={currentImageUrl} alt="الصورة الحالية للمادة" width={128} height={128} className="h-32 w-auto rounded-md object-cover border" data-ai-hint={form.getValues("imageHint") || "subject education"} />
+                  <NextImage key={currentImageUrl || 'no-image-key'} src={currentImageUrl!} alt="الصورة الحالية للمادة" width={128} height={128} className="h-32 w-auto rounded-md object-cover border" data-ai-hint={form.getValues("imageHint") || "subject education"} />
                   <Button type="button" variant="outline" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading}>
                     <Trash2 className="mr-2 h-4 w-4" /> مسح رابط الصورة
                   </Button>
