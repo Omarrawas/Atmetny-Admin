@@ -46,7 +46,6 @@ export default function EditSubjectPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null | undefined>(null);
-  // Removed: const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -64,6 +63,12 @@ export default function EditSubjectPage() {
       image: '',
     },
   });
+
+  const watchedImage = form.watch("image");
+
+  useEffect(() => {
+    setCurrentImageUrl(watchedImage);
+  }, [watchedImage]);
 
   useEffect(() => {
     const subjectIdFromParams = params?.id as string;
@@ -87,7 +92,7 @@ export default function EditSubjectPage() {
             imageHint: subjectData.imageHint || '',
             image: subjectData.image || '', 
           });
-          setCurrentImageUrl(subjectData.image);
+          // setCurrentImageUrl will be set by the watchedImage useEffect after form.reset
         } else {
           toast({ variant: "destructive", title: "خطأ", description: "المادة غير موجودة." });
           router.push('/dashboard/subjects');
@@ -102,11 +107,8 @@ export default function EditSubjectPage() {
     fetchSubjectData();
   }, [params, form, router, toast]);
 
-  // Removed: handleImageChange
 
   const handleRemoveCurrentImage = async () => {
-    // This function now only clears the URL from the form and state.
-    // Actual deletion from external storage is the admin's responsibility.
     setCurrentImageUrl(null);
     form.setValue('image', ''); 
     toast({ title: "تم", description: "تم مسح رابط الصورة. سيتم حفظ التغيير عند الضغط على 'حفظ التغييرات'." });
@@ -238,7 +240,7 @@ export default function EditSubjectPage() {
               <FormLabel>صورة المادة الحالية (رابط URL)</FormLabel>
               {currentImageUrl && currentImageUrl.trim() !== '' ? (
                 <div className="mt-2 space-y-2">
-                  <NextImage src={currentImageUrl} alt="الصورة الحالية للمادة" width={128} height={128} className="h-32 w-auto rounded-md object-cover border" />
+                  <NextImage src={currentImageUrl} alt="الصورة الحالية للمادة" width={128} height={128} className="h-32 w-auto rounded-md object-cover border" data-ai-hint={form.getValues("imageHint") || "subject education"} />
                   <Button type="button" variant="outline" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading}>
                     <Trash2 className="mr-2 h-4 w-4" /> مسح رابط الصورة
                   </Button>
