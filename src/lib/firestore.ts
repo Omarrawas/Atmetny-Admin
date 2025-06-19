@@ -4,7 +4,7 @@
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
-import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum } from '@/types';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum, AnswerAttempt } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
@@ -1148,15 +1148,17 @@ export const deleteTag = async (id: string): Promise<void> => { throw new Error(
 
 // --- Exam Attempts ---
 export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> => {
-  let query = supabase.from('exam_attempts').select(`
+  let query = supabase.from('user_exam_attempts').select(`
     id,
-    student_id,
-    profiles ( name, email ), 
+    user_id,
+    profiles ( name, email ),
     exam_id,
     exams ( title ),
+    subject_id,
+    exam_type,
     score,
-    total_possible_score,
-    percentage,
+    correct_answers_count,
+    total_questions_attempted,
     answers,
     started_at,
     completed_at,
@@ -1178,14 +1180,16 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
 
   return data.map((attempt: any) => ({
     id: String(attempt.id),
-    studentId: attempt.student_id,
-    studentName: attempt.profiles?.name || attempt.profiles?.email || 'Unknown Student',
+    userId: attempt.user_id,
+    user: attempt.profiles ? { name: attempt.profiles.name, email: attempt.profiles.email } : undefined,
     examId: attempt.exam_id,
-    examTitle: attempt.exams?.title || 'Unknown Exam',
+    exam: attempt.exams ? { title: attempt.exams.title } : undefined,
+    subjectId: attempt.subject_id,
+    examType: attempt.exam_type,
     score: attempt.score,
-    totalPossibleScore: attempt.total_possible_score,
-    percentage: attempt.percentage,
-    answers: attempt.answers as AnswerAttempt[], // You might need to cast/validate this properly
+    correctAnswersCount: attempt.correct_answers_count,
+    totalQuestionsAttempted: attempt.total_questions_attempted,
+    answers: attempt.answers as AnswerAttempt[], // Ensure AnswerAttempt is correctly defined
     startedAt: attempt.started_at,
     completedAt: attempt.completed_at,
     created_at: attempt.created_at,

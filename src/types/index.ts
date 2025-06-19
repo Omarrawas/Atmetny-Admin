@@ -207,7 +207,7 @@ export interface Lesson {
   isLocked?: boolean;
   linkedExamIds?: string[];
   notes?: string | null;
-  interactiveAppContent?: string | null; // Consolidated field
+  interactiveAppContent?: string | null; 
   created_at?: string;
   updated_at?: string;
   questions?: Question[];
@@ -243,25 +243,28 @@ export interface AccessCode {
 
 export interface AnswerAttempt {
   questionId: string;
-  studentAnswer: any;
+  studentAnswer: any; // Could be string, number, string[] depending on question type
   isCorrect: boolean;
 }
 
 export interface ExamAttempt {
   id?: string;
-  studentId: string;
-  studentName?: string;
-  examId: string;
-  examTitle?: string;
+  userId: string; // Changed from studentId, maps to user_id
+  user?: { name?: string | null; email?: string | null }; // For joined data from profiles
+  examId: string; // maps to exam_id
+  exam?: { title?: string | null }; // For joined data from exams
+  subjectId?: string | null; // New, maps to subject_id
+  examType: 'general_exam' | 'subject_practice' | string; // New, maps to exam_type
   score: number;
-  totalPossibleScore: number;
-  percentage: number;
-  answers: AnswerAttempt[];
-  startedAt?: string; // ISO Date string
-  completedAt: string; // ISO Date string
+  correctAnswersCount: number; // New, maps to correct_answers_count
+  totalQuestionsAttempted: number; // New, maps to total_questions_attempted
+  answers: AnswerAttempt[]; // JSONB in DB
+  startedAt?: string; // ISO Date string, maps to started_at
+  completedAt: string; // ISO Date string, maps to completed_at
   created_at?: string;
   updated_at?: string;
 }
+
 
 export interface AdminNotification {
   id: string;
@@ -284,11 +287,6 @@ export type SocialPlatform =
   | 'TikTok' 
   | 'Discord'
   | ''; // Added empty string to allow for placeholder selection
-
-export interface SocialMediaLink {
-  platform: SocialPlatform;
-  url: string;
-}
 
 export interface AppSettings {
   id?: string;

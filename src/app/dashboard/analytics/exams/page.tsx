@@ -25,7 +25,7 @@ interface ExamAnalyticsSummary {
 export default function ExamAnalyticsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]); // This might not be directly used if student names are joined in getExamAttempts
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -36,7 +36,7 @@ export default function ExamAnalyticsPage() {
         const [fetchedExams, fetchedAttempts, fetchedUsers] = await Promise.all([
           getExams(),
           getExamAttempts(), // Fetch all attempts initially
-          getUsers(),
+          getUsers(), // Keep for now, though user info might be joined in fetchedAttempts
         ]);
         setExams(fetchedExams);
         setExamAttempts(fetchedAttempts);
@@ -62,21 +62,21 @@ export default function ExamAnalyticsPage() {
       let averageScore: number | null = null;
 
       if (numberOfAttempts > 0) {
-        const totalPercentage = attemptsForThisExam.reduce((sum, attempt) => {
-          // Ensure totalPossibleScore is not 0 to avoid division by zero
-          // And that percentage is a valid number
-          if (attempt.totalPossibleScore > 0 && typeof attempt.percentage === 'number' && !isNaN(attempt.percentage)) {
-            return sum + attempt.percentage;
+        const totalPercentageSum = attemptsForThisExam.reduce((sum, attempt) => {
+          // Calculate percentage for this attempt using new fields
+          if (attempt.totalQuestionsAttempted > 0 && typeof attempt.correctAnswersCount === 'number') {
+            const percentage = (attempt.correctAnswersCount / attempt.totalQuestionsAttempted) * 100;
+            return sum + percentage;
           }
           return sum; // Skip invalid attempts for average calculation
         }, 0);
         
         const validAttemptsCount = attemptsForThisExam.filter(
-          attempt => attempt.totalPossibleScore > 0 && typeof attempt.percentage === 'number' && !isNaN(attempt.percentage)
+          attempt => attempt.totalQuestionsAttempted > 0 && typeof attempt.correctAnswersCount === 'number'
         ).length;
 
         if (validAttemptsCount > 0) {
-            averageScore = totalPercentage / validAttemptsCount;
+            averageScore = totalPercentageSum / validAttemptsCount;
         }
       }
 
