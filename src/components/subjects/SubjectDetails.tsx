@@ -29,7 +29,7 @@ import AddLessonQuestionForm from '@/components/questions/AddLessonQuestionForm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Film, FileText, Info, UserCircle, Trash2, Edit, ChevronDown, ChevronUp, AlertTriangle, ExternalLink, Download, Paperclip, ImageIcon, ListChecks, Link2Off, Save, SortAsc, Youtube, Sigma, CheckSquare } from 'lucide-react'; 
+import { Loader2, Film, FileText, Info, UserCircle, Trash2, Edit, ChevronDown, ChevronUp, AlertTriangle, ExternalLink, Download, Paperclip, ImageIcon, ListChecks, Link2Off, Save, SortAsc, Youtube, Sigma, CheckSquare, PlusCircle } from 'lucide-react'; 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import {
@@ -44,14 +44,14 @@ import {
   AlertDialogTrigger as AlertDialogTriggerComponent,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog as UiDialog, // Renamed Dialog to UiDialog
+  Dialog as UiDialog, 
   DialogContent as UiDialogContent,
   DialogHeader as UiDialogHeader,
   DialogTitle as UiDialogTitle,
   DialogDescription as UiDialogDescription,
   DialogFooter as UiDialogFooter,
-  DialogTrigger as UiDialogTrigger, // Renamed DialogTrigger to UiDialogTrigger
-  DialogClose as UiDialogClose, // Renamed DialogClose to UiDialogClose
+  DialogTrigger as UiDialogTrigger, 
+  DialogClose as UiDialogClose, 
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as UiFormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -111,6 +111,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
   const [isLoadingExams, setIsLoadingExams] = useState(true); 
 
   const [lessonsDialogOpenForSectionId, setLessonsDialogOpenForSectionId] = useState<string | null>(null);
+  const [showAddLessonForm, setShowAddLessonForm] = useState(false); // New state for toggling AddLessonForm
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -486,11 +487,13 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                        <UiDialog open={lessonsDialogOpenForSectionId === section.id} onOpenChange={(open) => {
                             if (open) {
                                 setLessonsDialogOpenForSectionId(section.id!);
+                                setShowAddLessonForm(false); // Ensure form is hidden when dialog opens/reopens
                                 if (!lessonsBySection[section.id!] || lessonsBySection[section.id!].length === 0) {
                                    fetchLessonsForSection(section.id!);
                                 }
                             } else {
                                 setLessonsDialogOpenForSectionId(null);
+                                setShowAddLessonForm(false); // Also hide if dialog is closed
                             }
                         }}>
                           <UiDialogTrigger asChild>
@@ -505,11 +508,37 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                               <UiDialogDescription>إدارة الدروس والأسئلة المرتبطة بهذا القسم.</UiDialogDescription>
                             </UiDialogHeader>
                             <ScrollArea className="flex-grow overflow-y-auto px-4 pb-4 pt-0 space-y-3">
-                                <AddLessonForm
-                                    subjectId={subjectId}
-                                    sectionId={section.id!}
-                                    onLessonAdded={() => handleContentAddedOrDeleted('lesson', section.id!)}
-                                />
+                                {!showAddLessonForm && (
+                                    <Button
+                                        variant="outline"
+                                        className="w-full my-3"
+                                        onClick={() => setShowAddLessonForm(true)}
+                                    >
+                                        <PlusCircle className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
+                                        إضافة درس جديد لهذا القسم
+                                    </Button>
+                                )}
+                                {showAddLessonForm && (
+                                    <div className="my-3">
+                                        <AddLessonForm
+                                            subjectId={subjectId}
+                                            sectionId={section.id!}
+                                            onLessonAdded={() => {
+                                                handleContentAddedOrDeleted('lesson', section.id!);
+                                                setShowAddLessonForm(false); // Hide form after adding
+                                            }}
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            className="w-full mt-2 text-sm text-muted-foreground hover:text-destructive"
+                                            onClick={() => setShowAddLessonForm(false)}
+                                        >
+                                            إلغاء إضافة الدرس
+                                        </Button>
+                                        <hr className="my-4"/>
+                                    </div>
+                                )}
+
                                 {isLoadingLessons[section.id!] ? (
                                     <div className="flex items-center justify-center py-3">
                                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
