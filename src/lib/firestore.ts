@@ -320,7 +320,104 @@ export const getQuestionById = async (id: string): Promise<Question | null> => {
   if (error && error.code !== 'PGRST116') throw error;
   return mapDbQuestionToQuestionType(q);
 };
-export const importQuestionsBatch = async (questions: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": importQuestionsBatch"); };
+
+export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> => {
+  if (!rawImportData || rawImportData.length === 0) {
+    console.log("importQuestionsBatch: No data provided to import.");
+    return;
+  }
+
+  const questionsToInsertToDb = [];
+
+  for (const item of rawImportData) {
+    // Basic validation for required fields that are expected to be directly in `item`
+    // based on normalization in `import/page.tsx` (e.g., item.questiontype, item.questiontext).
+    if (!item.questiontype || !item.questiontext || !item.difficulty || !item.subjectid) {
+        console.warn("Skipping question due to missing required fields (questiontype, questiontext, difficulty, subjectid):", item);
+        continue;
+    }
+
+    const dbData: any = {
+      question_type: item.questiontype as QuestionType,
+      question_text: String(item.questiontext),
+      difficulty: item.difficulty as 'easy' | 'medium' | 'hard',
+      subject_id: String(item.subjectid), // CRITICAL: Assumes subjectid IS the actual UUID.
+                                          // Import page should resolve subject name to ID if name is provided.
+      lesson_id: item.lessonid ? String(item.lessonid) : null,
+      tag_ids: item.tagids ? String(item.tagids).split(',').map((t: string) => t.trim()).filter(Boolean) : [],
+      is_sane: item.issane !== undefined ? String(item.issane).toLowerCase() === 'true' : null,
+      sanity_explanation: item.sanityexplanation || null,
+      is_locked: item.islocked !== undefined ? String(item.islocked).toLowerCase() === 'true' : true,
+    };
+
+    switch (dbData.question_type) {
+      case 'mcq':
+        const options: Option[] = [];
+        for (let i = 1; i <= 6; i++) {
+          if (item[`option${i}`]) { // `option1`, `option2` are from CSV/XLSX
+            options.push({ id: uuidv4(), text: String(item[`option${i}`]) });
+          }
+        }
+        dbData.options = options;
+
+        if (options.length < 2) {
+          console.warn(`MCQ question (text: "${item.questiontext?.substring(0,30)}...") has less than 2 options, skipping.`);
+          continue;
+        }
+        
+        let correctMcqIndex = -1;
+        if (item.correctoptionindex) { // 1-based index from CSV/XLSX
+          correctMcqIndex = parseInt(String(item.correctoptionindex), 10) - 1;
+        } else if (item.correctoptiontext) { // Text of correct option from CSV/XLSX
+          correctMcqIndex = options.findIndex(opt => opt.text.trim().toLowerCase() === String(item.correctoptiontext).trim().toLowerCase());
+        }
+
+        if (correctMcqIndex >= 0 && correctMcqIndex < options.length) {
+          dbData.correct_option_id = options[correctMcqIndex].id;
+        } else {
+          console.warn(`Could not determine correct option for MCQ (text: "${item.questiontext?.substring(0,30)}..."), correctOptionIndex: "${item.correctoptionindex}", correctOptionText: "${item.correctoptiontext}". Options generated: ${JSON.stringify(options)}. Skipping question.`);
+          continue;
+        }
+        break;
+      case 'true_false':
+        dbData.options = [{ id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' }];
+        const correctBoolAnswer = String(item.correctbooleananswer).toLowerCase(); // From CSV/XLSX
+        if (correctBoolAnswer === 'true' || correctBoolAnswer === 'false') {
+          dbData.correct_option_id = correctBoolAnswer;
+        } else {
+          console.warn(`Invalid correct answer for True/False (text: "${item.questiontext?.substring(0,30)}..."), received: ${item.correctbooleananswer}, skipping.`);
+          continue;
+        }
+        break;
+      case 'fill_in_the_blanks':
+        dbData.correct_answers = item.correctanswers ? String(item.correctanswers).split(';').map((ans: string) => ans.trim()).filter(Boolean) : []; // From CSV/XLSX
+        if (dbData.correct_answers.length === 0) {
+           console.warn(`Fill in the blanks question (text: "${item.questiontext?.substring(0,30)}...") has no correct answers, skipping.`);
+           continue;
+        }
+        break;
+      case 'short_answer':
+        dbData.model_answer = item.modelanswer || null; // From CSV/XLSX
+        break;
+      default:
+        console.warn(`Unsupported question type "${dbData.question_type}" during import (text: "${item.questiontext?.substring(0,30)}..."), skipping.`);
+        continue;
+    }
+    questionsToInsertToDb.push(dbData);
+  }
+
+  if (questionsToInsertToDb.length > 0) {
+    const { error } = await supabase.from('questions').insert(questionsToInsertToDb);
+    if (error) {
+      console.error("Supabase error batch inserting questions:", error);
+      throw error;
+    }
+    console.log(`Successfully inserted ${questionsToInsertToDb.length} questions.`);
+  } else {
+    console.log("No valid questions found in the import data to insert.");
+  }
+};
+
 
 // --- Exams ---
 export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at' | 'questionCount' | 'questions'> & { questionIds?: string[] }): Promise<string> => {
