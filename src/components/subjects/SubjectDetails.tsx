@@ -504,7 +504,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                               <UiDialogTitle>دروس القسم: {section.title}</UiDialogTitle>
                               <UiDialogDescription>إدارة الدروس والأسئلة المرتبطة بهذا القسم.</UiDialogDescription>
                             </UiDialogHeader>
-                            <ScrollArea className="flex-grow overflow-y-auto p-4 space-y-3"> {/* Reduced padding to p-4 */}
+                            <ScrollArea className="flex-grow overflow-y-auto px-4 pb-4 pt-0 space-y-3">
                                 <AddLessonForm
                                     subjectId={subjectId}
                                     sectionId={section.id!}
@@ -789,3 +789,4 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
     </Card>
   );
 }
+
