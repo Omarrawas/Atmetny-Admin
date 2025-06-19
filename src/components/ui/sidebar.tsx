@@ -4,7 +4,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft, PanelRight } from "lucide-react" // Added PanelRight
+import { PanelLeft, PanelRight } from "lucide-react" 
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -40,7 +40,7 @@ type SidebarContext = {
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
   toggleSidebar: () => void
-  currentDir: "ltr" | "rtl" // Added currentDir
+  currentDir: "ltr" | "rtl" 
 }
 
 const SidebarContext = React.createContext<SidebarContext | null>(null)
@@ -76,10 +76,9 @@ const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile()
     const [openMobile, setOpenMobile] = React.useState(false)
-    const [currentDir, setCurrentDir] = React.useState<"ltr" | "rtl">("ltr"); // Default to LTR
+    const [currentDir, setCurrentDir] = React.useState<"ltr" | "rtl">("ltr"); 
 
     React.useEffect(() => {
-      // Detect document directionality on mount
       const dir = document.documentElement.dir || "ltr";
       setCurrentDir(dir as "ltr" | "rtl");
     }, []);
@@ -132,7 +131,7 @@ const SidebarProvider = React.forwardRef<
         openMobile,
         setOpenMobile,
         toggleSidebar,
-        currentDir, // Provide currentDir
+        currentDir, 
       }),
       [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, currentDir]
     )
@@ -174,7 +173,7 @@ const Sidebar = React.forwardRef<
 >(
   (
     {
-      side = "left", // Default remains left, RTL handles content flow
+      side = "left", 
       variant = "sidebar",
       collapsible = "offcanvas",
       className,
@@ -184,7 +183,11 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile, currentDir } = useSidebar()
-    const effectiveSide = currentDir === 'rtl' ? (side === 'left' ? 'right' : 'left') : side;
+    // Determine the visual side based on the currentDir and the intended side prop
+    // If dir is RTL, a 'left' sidebar should visually appear on the right, and a 'right' sidebar on the left.
+    // However, the `side` prop here usually means the actual side of the screen it attaches to.
+    // For RTL, if we want the sidebar on the right, `side` should be "right".
+    const effectiveSheetSide = currentDir === 'rtl' ? (side === 'left' ? 'right' : 'left') : side;
 
 
     if (collapsible === "none") {
@@ -214,7 +217,7 @@ const Sidebar = React.forwardRef<
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
-            side={effectiveSide} // Use effectiveSide for mobile sheet
+            side={effectiveSheetSide} 
           >
             <SheetHeader className="sr-only"> 
               <SheetTitle>Main Menu</SheetTitle>
@@ -232,13 +235,12 @@ const Sidebar = React.forwardRef<
         data-state={state}
         data-collapsible={state === "collapsed" ? collapsible : ""}
         data-variant={variant}
-        data-side={side} // Keep original side for desktop logic, RTL handled by dir attribute
+        data-side={side} 
       >
         <div
           className={cn(
             "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
             "group-data-[collapsible=offcanvas]:w-0",
-            // "group-data-[side=right]:rotate-180", // This might not be needed if side logic is correct
             variant === "floating" || variant === "inset"
               ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
@@ -274,8 +276,12 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar, currentDir } = useSidebar()
-  const Icon = currentDir === 'rtl' ? PanelRight : PanelLeft;
+  const { toggleSidebar, currentDir, state } = useSidebar()
+  // Updated Icon logic
+  const Icon = currentDir === 'rtl'
+    ? (state === 'expanded' ? PanelRight : PanelLeft)
+    : (state === 'expanded' ? PanelLeft : PanelRight);
+
 
   return (
     <Button
@@ -591,7 +597,6 @@ const SidebarMenuButton = React.forwardRef<
       tooltipProps = tooltip
     }
     
-    // Adjust tooltip side for RTL
     const tooltipSide = currentDir === 'rtl' ? 'left' : 'right';
 
 
@@ -706,7 +711,7 @@ const SidebarMenuSub = React.forwardRef<
     ref={ref}
     data-sidebar="menu-sub"
     className={cn(
-      "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5", // Tailwind handles border-l to border-r in RTL
+      "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5", 
       "group-data-[collapsible=icon]:hidden",
       className
     )}
@@ -777,4 +782,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-

@@ -61,7 +61,7 @@ export default function AppSidebar() {
   const appName = appSettings?.appName || "Atmetny Admin";
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" side="left"> {/* Defaulting to left, RTL text flow will adjust content within */}
+    <Sidebar collapsible="icon" variant="sidebar" side="right"> {/* Changed side to "right" */}
       <SidebarHeader className="flex items-center justify-between p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <div 
@@ -104,7 +104,7 @@ export default function AppSidebar() {
                       pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')  ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
                     )}
                     isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
-                    tooltip={{ children: item.label, side: 'left', align: 'center' }} // Changed side to 'left' for RTL
+                    tooltip={{ children: item.label, side: 'left', align: 'center' }} 
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
                     <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">{item.label}</span>
@@ -123,7 +123,7 @@ export default function AppSidebar() {
                 pathname === '/dashboard/settings' ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
                 )}
                 isActive={pathname === '/dashboard/settings'}
-                tooltip={{ children: "Settings", side: 'left', align: 'center' }} // Changed side to 'left' for RTL
+                tooltip={{ children: "Settings", side: 'left', align: 'center' }}
             >
                 <Settings className="h-5 w-5 shrink-0" />
                 <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">Settings</span>
@@ -133,4 +133,3 @@ export default function AppSidebar() {
     </Sidebar>
   );
 }
-
