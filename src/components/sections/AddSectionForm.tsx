@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Card imports removed as it will be handled by the parent (SubjectDetails) when shown
 import { useToast } from '@/hooks/use-toast';
 import { addSubjectSection } from '@/lib/firestore';
 import { Loader2, PlusCircle } from 'lucide-react';
@@ -42,17 +42,17 @@ export default function AddSectionForm({ subjectId, onSectionAdded }: AddSection
     defaultValues: {
       title: '',
       type: 'theory',
-      order: undefined, // Default to undefined, let placeholder show
+      order: undefined, 
     },
   });
 
   const onSubmit = async (data: SectionFormValues) => {
     setIsLoading(true);
     try {
-      await addSubjectSection(subjectId, { 
-        title: data.title, 
+      await addSubjectSection(subjectId, {
+        title: data.title,
         type: data.type,
-        order: data.order ?? undefined // Pass undefined if null or empty, Firestore handles this or our addDocument
+        order: data.order ?? undefined
       });
       toast({
         title: "نجاح!",
@@ -73,77 +73,71 @@ export default function AddSectionForm({ subjectId, onSectionAdded }: AddSection
   };
 
   return (
-    <Card className="my-4 shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg">إضافة قسم جديد للمادة</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>عنوان القسم</FormLabel>
-                  <FormControl>
-                    <Input placeholder="مثال: الفصل الأول - مقدمة" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>نوع القسم</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر نوع القسم" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="theory">نظري</SelectItem>
-                      <SelectItem value="practical">عملي</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="order"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ترتيب القسم (اختياري)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      placeholder="مثال: 1 (للأول)، 2 (للثاني)" 
-                      {...field} 
-                      value={field.value === null || field.value === undefined ? '' : field.value} // Handle null/undefined for input
-                      onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                      min="0"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    لتحديد ترتيب ظهور الأقسام. الأقسام بدون ترتيب قد تظهر في النهاية.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-              إضافة القسم
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+    // Card wrapper removed
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>عنوان القسم</FormLabel>
+              <FormControl>
+                <Input placeholder="مثال: الفصل الأول - مقدمة" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>نوع القسم</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر نوع القسم" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="theory">نظري</SelectItem>
+                  <SelectItem value="practical">عملي</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="order"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>ترتيب القسم (اختياري)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  placeholder="مثال: 1 (للأول)، 2 (للثاني)"
+                  {...field}
+                  value={field.value === null || field.value === undefined ? '' : field.value} 
+                  onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                  min="0"
+                />
+              </FormControl>
+              <FormDescription>
+                لتحديد ترتيب ظهور الأقسام. الأقسام بدون ترتيب قد تظهر في النهاية.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+          إضافة القسم
+        </Button>
+      </form>
+    </Form>
   );
 }

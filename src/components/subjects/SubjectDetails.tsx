@@ -18,10 +18,10 @@ import {
     updateLesson,
     unlinkQuestionFromLesson,
     getLessonsInSection,
-    getExams, 
-    getExamById, 
+    getExams,
+    getExamById,
 } from '@/lib/firestore';
-import type { SubjectSection, Lesson, LessonFile, Question, LessonTeacher, Exam } from '@/types'; 
+import type { SubjectSection, Lesson, LessonFile, Question, LessonTeacher, Exam } from '@/types';
 import AddSectionForm from '@/components/sections/AddSectionForm';
 import AddLessonForm from '@/components/lessons/AddLessonForm';
 import EditLessonForm from '@/components/lessons/EditLessonForm';
@@ -29,7 +29,7 @@ import AddLessonQuestionForm from '@/components/questions/AddLessonQuestionForm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Film, FileText, Info, UserCircle, Trash2, Edit, ChevronDown, ChevronUp, AlertTriangle, ExternalLink, Download, Paperclip, ImageIcon, ListChecks, Link2Off, Save, SortAsc, Youtube, Sigma, CheckSquare, PlusCircle } from 'lucide-react'; 
+import { Loader2, Film, FileText, Info, UserCircle, Trash2, Edit, ChevronDown, ChevronUp, AlertTriangle, ExternalLink, Download, Paperclip, ImageIcon, ListChecks, Link2Off, Save, SortAsc, Youtube, Sigma, CheckSquare, PlusCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import {
@@ -44,14 +44,14 @@ import {
   AlertDialogTrigger as AlertDialogTriggerComponent,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog as UiDialog, 
+  Dialog as UiDialog,
   DialogContent as UiDialogContent,
   DialogHeader as UiDialogHeader,
   DialogTitle as UiDialogTitle,
   DialogDescription as UiDialogDescription,
   DialogFooter as UiDialogFooter,
-  DialogTrigger as UiDialogTrigger, 
-  DialogClose as UiDialogClose, 
+  DialogTrigger as UiDialogTrigger,
+  DialogClose as UiDialogClose,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as UiFormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -103,15 +103,16 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
   const [sections, setSections] = useState<SubjectSection[]>([]);
   const [lessonsBySection, setLessonsBySection] = useState<Record<string, Lesson[]>>({});
   const [questionsByLesson, setQuestionsByLesson] = useState<Record<string, Question[]>>({});
-  const [allExams, setAllExams] = useState<Exam[]>([]); 
+  const [allExams, setAllExams] = useState<Exam[]>([]);
 
   const [isLoadingSections, setIsLoadingSections] = useState(true);
   const [isLoadingLessons, setIsLoadingLessons] = useState<Record<string, boolean>>({});
   const [isLoadingQuestions, setIsLoadingQuestions] = useState<Record<string, boolean>>({});
-  const [isLoadingExams, setIsLoadingExams] = useState(true); 
+  const [isLoadingExams, setIsLoadingExams] = useState(true);
 
   const [lessonsDialogOpenForSectionId, setLessonsDialogOpenForSectionId] = useState<string | null>(null);
-  const [showAddLessonForm, setShowAddLessonForm] = useState(false); // New state for toggling AddLessonForm
+  const [showAddLessonForm, setShowAddLessonForm] = useState(false);
+  const [showAddSectionForm, setShowAddSectionForm] = useState(false); // New state for AddSectionForm
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -142,7 +143,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
     try {
       const [fetchedSections, fetchedExams] = await Promise.all([
         getSubjectSections(subjectId),
-        getExams() 
+        getExams()
       ]);
       setSections(fetchedSections);
       setAllExams(fetchedExams);
@@ -220,8 +221,10 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
   const handleContentAddedOrDeleted = (type: 'section' | 'lesson' | 'question', sectionIdParam?: string, lessonIdParam?: string) => {
     if (type === 'section') {
         fetchSubjectContent();
+        setShowAddSectionForm(false); // Hide form after adding section
     } else if (type === 'lesson' && sectionIdParam) {
         fetchLessonsForSection(sectionIdParam);
+        setShowAddLessonForm(false); // Hide form after adding lesson
     } else if (type === 'question' && lessonIdParam) {
         handleFetchQuestionsForLesson(lessonIdParam);
     }
@@ -348,9 +351,33 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
         {/* Subject name is passed as prop, no need to display it here again if dialog is for subject */}
       </CardHeader>
       <CardContent>
-        <AddSectionForm subjectId={subjectId} onSectionAdded={() => handleContentAddedOrDeleted('section')} />
-
-        {sections.length === 0 && !isLoadingSections ? (
+        {!showAddSectionForm && (
+          <Button
+            variant="outline"
+            className="w-full my-3"
+            onClick={() => setShowAddSectionForm(true)}
+          >
+            <PlusCircle className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
+            إضافة قسم جديد لهذه المادة
+          </Button>
+        )}
+        {showAddSectionForm && (
+          <div className="my-4 p-4 border rounded-lg bg-muted/30">
+            <h3 className="text-lg font-semibold mb-3">إضافة قسم جديد للمادة</h3>
+            <AddSectionForm
+              subjectId={subjectId}
+              onSectionAdded={() => handleContentAddedOrDeleted('section')}
+            />
+            <Button
+              variant="ghost"
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-destructive"
+              onClick={() => setShowAddSectionForm(false)}
+            >
+              إلغاء إضافة القسم
+            </Button>
+          </div>
+        )}
+        {sections.length === 0 && !isLoadingSections && !showAddSectionForm ? (
           <p className="text-center text-muted-foreground py-4">لا توجد أقسام مضافة لهذه المادة حتى الآن.</p>
         ) : (
           <div className="space-y-4 mt-4">
@@ -525,7 +552,6 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                             sectionId={section.id!}
                                             onLessonAdded={() => {
                                                 handleContentAddedOrDeleted('lesson', section.id!);
-                                                setShowAddLessonForm(false); // Hide form after adding
                                             }}
                                         />
                                         <Button
@@ -818,5 +844,4 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
     </Card>
   );
 }
-
 
