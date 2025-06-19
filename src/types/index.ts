@@ -265,16 +265,25 @@ export interface ExamAttempt {
   updated_at?: string;
 }
 
+export type AdminNotificationType = 
+  | 'qr_code_expiry_warning' 
+  | 'low_question_count_subject' 
+  | 'new_user_registered' 
+  | 'system_update'
+  | 'custom_admin_message'
+  | 'info'; // Added generic info type
 
 export interface AdminNotification {
-  id: string;
-  type: 'qr_expiry_warning' | 'info';
+  id: string; // uuid
+  type: AdminNotificationType;
   message: string;
-  relatedId?: string;
-  entityName?: string;
-  linkPath?: string;
-  createdAt: string; // ISO Date string
+  link_path?: string | null; // Path within the admin dashboard
+  related_entity_id?: string | null; // uuid of the related entity (e.g., QR code ID, subject ID)
+  related_entity_type?: string | null; // e.g., 'access_code', 'subject'
+  is_read: boolean;
+  created_at: string; // timestamptz
 }
+
 
 export type SocialPlatform = 
   | 'Facebook' 
@@ -315,3 +324,4 @@ export interface Announcement {
 
 // Re-export the Database interface from the Supabase generated types
 export type Database = SupabaseDatabase;
+

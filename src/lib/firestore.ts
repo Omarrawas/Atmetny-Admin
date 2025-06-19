@@ -4,7 +4,7 @@
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
-import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum, AnswerAttempt } from '@/types';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum, AnswerAttempt, AdminNotification } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
@@ -1326,6 +1326,51 @@ export const updateAnnouncement = async (id: string, data: Partial<Omit<Announce
 export const deleteAnnouncement = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteAnnouncement"); };
 export const getAnnouncementById = async (id: string): Promise<Announcement | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAnnouncementById"); };
 
+// --- Admin Notifications ---
+export const getAdminNotifications = async (options?: { limit?: number; unreadOnly?: boolean }): Promise<AdminNotification[]> => {
+  let query = supabase.from('admin_notifications').select('*');
+
+  if (options?.unreadOnly) {
+    query = query.eq('is_read', false);
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+  
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Supabase error fetching admin notifications:", error);
+    // Don't throw error for notifications, just return empty array or log
+    return []; 
+  }
+  return (data?.map(n => ({
+    id: String(n.id),
+    type: n.type as AdminNotificationType,
+    message: n.message,
+    link_path: n.link_path,
+    related_entity_id: n.related_entity_id,
+    related_entity_type: n.related_entity_type,
+    is_read: n.is_read,
+    created_at: n.created_at,
+  })) as AdminNotification[]) || [];
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('admin_notifications')
+    .update({ is_read: true, updated_at: new Date().toISOString() })
+    .eq('id', notificationId);
+
+  if (error) {
+    console.error("Supabase error marking notification as read:", error);
+    // Don't throw, just log for now
+  }
+};
+
 // --- Batch Imports ---
 export const addExamsBatch = async (exams: Omit<Exam, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addExamsBatch"); };
 export const addNewsArticlesBatch = async (articles: Omit<NewsArticle, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addNewsArticlesBatch"); };
@@ -1364,3 +1409,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+

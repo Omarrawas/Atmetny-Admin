@@ -12,17 +12,18 @@ import {
   DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, School, UserCircle, Menu, Bell, Info, Loader2 } from 'lucide-react';
+import { LogOut, School, UserCircle, Menu, Bell, Info, Loader2, MessageSquareWarning, CheckCircle2, UserPlus, ExternalLinkIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabaseClient'; 
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from '../ui/sidebar';
-import type { AdminNotification, AppSettings } from '@/types'; // Added AppSettings
-import { getAppSettings } from '@/lib/firestore'; // Added getAppSettings
-import { format } from 'date-fns'; // Removed addDays, isBefore as they are not used currently
+import type { AdminNotification, AppSettings, AdminNotificationType } from '@/types'; 
+import { getAppSettings, getAdminNotifications, markNotificationAsRead } from '@/lib/firestore'; // Updated imports
+import { formatDistanceToNow, parseISO } from 'date-fns'; 
+import { arSA } from 'date-fns/locale'; // For Arabic locale
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import NextImage from 'next/image'; // Added NextImage
+import NextImage from 'next/image'; 
 
 export default function AppHeader() {
   const { userProfile, user } = useAuth(); 
@@ -52,27 +53,49 @@ export default function AppHeader() {
     fetchSettings();
   }, []);
 
-
-  const generateNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (markAsRead = false) => {
+    if (isLoadingNotifications) return;
     setIsLoadingNotifications(true);
-    const generatedNots: AdminNotification[] = [];
-    console.warn("Notification generation needs to be migrated to Supabase.");
-    setNotifications(generatedNots); 
-    setIsLoadingNotifications(false);
-  }, []);
+    try {
+      const fetchedNots = await getAdminNotifications({ limit: 15, unreadOnly: !markAsRead });
+      setNotifications(fetchedNots);
+      if (markAsRead) {
+        // In a real scenario, you'd mark these specific fetched notifications as read on the backend
+        // For now, we'll just refetch all or assume they are marked read if the dropdown is opened
+        console.log("Notifications would be marked as read if this logic was fully implemented.");
+      }
+    } catch (error) {
+        console.error("Error fetching notifications:", error);
+        // toast({ variant: "destructive", title: "Error fetching notifications", description: "Could not load notifications."});
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, [isLoadingNotifications]); // Added toast
 
   const handleNotificationDropdownToggle = (open: boolean) => {
     setIsNotificationDropdownOpen(open);
-    if (open && notifications.length === 0 && !isLoadingNotifications) {
-      generateNotifications();
+    if (open) {
+      fetchNotifications(true); // Fetch and ideally mark as read when dropdown opens
     }
   };
   
   useEffect(() => {
-    if(pathname === '/dashboard' && isNotificationDropdownOpen) {
-        // Potentially refresh notifications
+    // Initial fetch or fetch on dashboard view (if desired)
+    if(pathname === '/dashboard') { // Example: Fetch when dashboard is viewed
+        fetchNotifications();
     }
-  }, [pathname, isNotificationDropdownOpen, generateNotifications]); // Added generateNotifications to dependency array
+  }, [pathname, fetchNotifications]);
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await markNotificationAsRead(notificationId);
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+      // Optionally, refetch or just update UI
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
 
   const handleLogout = async () => {
     try {
@@ -97,7 +120,25 @@ export default function AppHeader() {
   };
   
   const appLogoUrl = appSettings?.appLogoUrl;
-  const appName = appSettings?.appName || "Atmetny Admin Lite"; // Use app name from settings or default
+  const appName = appSettings?.appName || "Atmetny Admin Lite";
+
+  const getNotificationIcon = (type: AdminNotificationType) => {
+    switch (type) {
+      case 'qr_code_expiry_warning':
+        return <MessageSquareWarning className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />;
+      case 'low_question_count_subject':
+        return <MessageSquareWarning className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />;
+      case 'new_user_registered':
+        return <UserPlus className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />;
+      case 'system_update':
+      case 'custom_admin_message':
+      case 'info':
+      default:
+        return <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />;
+    }
+  };
+  
+  const unreadNotificationsCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card px-4 shadow-sm sm:px-6">
@@ -131,12 +172,12 @@ export default function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
-              {notifications.length > 0 && (
+              {unreadNotificationsCount > 0 && (
                 <Badge 
                   variant="destructive" 
                   className="absolute -top-1 -right-1 h-4 w-4 min-w-[1rem] p-0 flex items-center justify-center text-xs rounded-full"
                 >
-                  {notifications.length}
+                  {unreadNotificationsCount}
                 </Badge>
               )}
               <span className="sr-only">View Notifications</span>
@@ -152,28 +193,64 @@ export default function AppHeader() {
               </DropdownMenuItem>
             ) : notifications.length === 0 ? (
               <DropdownMenuItem disabled className="text-center text-muted-foreground p-4">
-                لا توجد إشعارات جديدة. (تحتاج إلى ترحيل لجلب البيانات من Supabase)
+                لا توجد إشعارات جديدة.
               </DropdownMenuItem>
             ) : (
               <DropdownMenuGroup className="max-h-80 overflow-y-auto">
                 {notifications.map(not => (
-                  <DropdownMenuItem key={not.id} asChild className="cursor-pointer hover:bg-accent/50">
-                    <Link href={not.linkPath || '#'}>
-                      <div className="flex items-start gap-2 py-1.5">
-                        {not.type === 'qr_expiry_warning' && <Info className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />}
-                        {not.type === 'info' && <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />}
-                        <div className="flex-grow">
-                          <p className="text-sm text-foreground leading-snug">{not.message}</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(not.createdAt), 'PPp')}</p>
+                  <DropdownMenuItem 
+                    key={not.id} 
+                    asChild 
+                    className={cn(
+                      "cursor-pointer hover:bg-accent/50 data-[disabled]:opacity-100 data-[disabled]:cursor-default",
+                      !not.is_read && "bg-primary/10 hover:bg-primary/20"
+                    )}
+                    onSelect={(e) => {
+                      if (not.link_path) {
+                        router.push(not.link_path);
+                      }
+                      if (!not.is_read) {
+                        handleMarkAsRead(not.id);
+                      }
+                      e.preventDefault(); // Prevent dropdown from closing if it's a link
+                    }}
+                  >
+                    {/* Use Link if link_path exists, otherwise a div */}
+                    {not.link_path ? (
+                       <Link href={not.link_path} className="w-full">
+                        <div className="flex items-start gap-2 py-1.5">
+                            {getNotificationIcon(not.type)}
+                            <div className="flex-grow">
+                            <p className="text-sm text-foreground leading-snug">{not.message}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(parseISO(not.created_at), { addSuffix: true, locale: arSA })}
+                            </p>
+                            </div>
+                            {!not.is_read && (
+                            <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" title="غير مقروء"></span>
+                            )}
                         </div>
-                      </div>
-                    </Link>
+                      </Link>
+                    ) : (
+                       <div className="w-full flex items-start gap-2 py-1.5" onClick={() => !not.is_read && handleMarkAsRead(not.id)}>
+                            {getNotificationIcon(not.type)}
+                            <div className="flex-grow">
+                            <p className="text-sm text-foreground leading-snug">{not.message}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(parseISO(not.created_at), { addSuffix: true, locale: arSA })}
+                            </p>
+                            </div>
+                            {!not.is_read && (
+                            <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" title="غير مقروء"></span>
+                            )}
+                        </div>
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
             )}
              <DropdownMenuSeparator />
-             <DropdownMenuItem onClick={generateNotifications} disabled={isLoadingNotifications} className="flex items-center justify-center cursor-pointer">
+             <DropdownMenuItem onClick={() => fetchNotifications(false)} disabled={isLoadingNotifications} className="flex items-center justify-center cursor-pointer">
                 <Loader2 className={`mr-2 h-4 w-4 ${isLoadingNotifications ? "animate-spin" : "hidden"}`} />
                 تحديث الإشعارات
             </DropdownMenuItem>
@@ -218,3 +295,4 @@ export default function AppHeader() {
     </header>
   );
 }
+
