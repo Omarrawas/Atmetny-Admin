@@ -84,7 +84,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
     image: data.image || null,
     icon_name: data.iconName || null,
     image_hint: data.imageHint || null,
-    interactive_app_content: (data as any).interactiveAppContent || null, // Added for single field
+    interactive_app_content: (data as any).interactiveAppContent || null,
   };
 
   if (data.order !== undefined && data.order !== null) {
@@ -123,12 +123,28 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
   return newSubject.id;
 };
 
-export const getSubjects = async (): Promise<Subject[]> => {
-  const { data, error } = await supabase
-    .from('subjects')
-    .select('*')
-    .order('order', { ascending: true, nullsFirst: false })
-    .order('name', { ascending: true });
+export const getSubjects = async (userId?: string, userRole?: UserProfile['role']): Promise<Subject[]> => {
+  let query = supabase.from('subjects').select('*');
+
+  if (userRole === 'teacher' && userId) {
+    const { data: teacherSubjects, error: teacherSubjectsError } = await supabase
+      .from('teacher_subjects')
+      .select('subject_id')
+      .eq('teacher_id', userId);
+
+    if (teacherSubjectsError) {
+      console.error("Error fetching teacher's subjects links:", teacherSubjectsError);
+      throw teacherSubjectsError;
+    }
+    const teacherSubjectIds = teacherSubjects.map(ts => ts.subject_id);
+    if (teacherSubjectIds.length === 0) return [];
+    query = query.in('id', teacherSubjectIds);
+  }
+
+  query = query.order('order', { ascending: true, nullsFirst: false })
+               .order('name', { ascending: true });
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching subjects from Supabase (in firestore.ts):", error);
@@ -136,16 +152,36 @@ export const getSubjects = async (): Promise<Subject[]> => {
   }
   return (data?.map(s => ({
     ...s,
-    id: String(s.id), // Ensure ID is string
+    id: String(s.id),
     iconName: s.icon_name,
     imageHint: s.image_hint,
-    interactiveAppContent: (s as any).interactive_app_content, // Added for single field
+    interactiveAppContent: (s as any).interactive_app_content,
     createdAt: s.created_at,
     updatedAt: s.updated_at,
   })) as Subject[]) || [];
 };
 
-export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>>): Promise<void> => {
+
+export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>>, userId?: string, userRole?: UserProfile['role']): Promise<void> => {
+  if (userRole === 'teacher' && userId) {
+    const { data: teacherSubjects, error: tsError } = await supabase
+      .from('teacher_subjects')
+      .select('subject_id')
+      .eq('teacher_id', userId)
+      .eq('subject_id', id)
+      .maybeSingle(); // Use maybeSingle to avoid error if teacher is not assigned
+    if (tsError) {
+        console.error("Error checking teacher's subject assignment:", tsError);
+        throw tsError;
+    }
+    if (!teacherSubjects) {
+      throw new Error("الأستاذ غير مصرح له بتحديث هذه المادة أو المادة غير موجودة للأستاذ.");
+    }
+  } else if (userRole !== 'admin') {
+     throw new Error("المستخدم غير مصرح له بتحديث المواد.");
+  }
+
+
   const dbData: any = {};
   if (data.name !== undefined) dbData.name = data.name;
   if (data.description !== undefined) dbData.description = data.description;
@@ -153,18 +189,21 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
   if (data.image !== undefined) dbData.image = data.image;
   if (data.iconName !== undefined) dbData.icon_name = data.iconName;
   if (data.imageHint !== undefined) dbData.image_hint = data.imageHint;
-  if (data.hasOwnProperty('interactiveAppContent')) dbData.interactive_app_content = (data as any).interactiveAppContent; // Added for single field
+  if (data.hasOwnProperty('interactiveAppContent')) dbData.interactive_app_content = (data as any).interactiveAppContent;
   if (data.order !== undefined) {
     dbData.order = data.order;
   } else if (data.hasOwnProperty('order') && data.order === null) {
     dbData.order = null;
   }
 
-
   const { error } = await supabase.from('subjects').update(dbData).eq('id', id);
   if (error) throw error;
 };
-export const deleteSubject = async (subjectId: string): Promise<void> => {
+
+export const deleteSubject = async (subjectId: string, userId?: string, userRole?: UserProfile['role']): Promise<void> => {
+    if (userRole !== 'admin') {
+        throw new Error("المستخدم غير مصرح له بحذف المواد.");
+    }
     const { error } = await supabase.from('subjects').delete().eq('id', subjectId);
     if (error) {
         console.error("Supabase error deleting subject:", error);
@@ -173,14 +212,14 @@ export const deleteSubject = async (subjectId: string): Promise<void> => {
 };
 export const getSubjectById = async (id: string): Promise<Subject | null> => {
    const { data, error } = await supabase.from('subjects').select('*').eq('id', id).single();
-   if (error && error.code !== 'PGRST116') throw error; // Allow 'PGRST116' (single row not found)
+   if (error && error.code !== 'PGRST116') throw error;
    if (!data) return null;
    return {
      ...data,
-     id: String(data.id), // Ensure ID is string
+     id: String(data.id),
      iconName: data.icon_name,
      imageHint: data.image_hint,
-     interactiveAppContent: (data as any).interactive_app_content, // Added for single field
+     interactiveAppContent: (data as any).interactive_app_content,
      createdAt: data.created_at,
      updatedAt: data.updated_at,
    } as Subject;
@@ -229,7 +268,7 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
 
   if (error) {
     console.info("Supabase error details for addQuestion will follow on the next line(s).");
-    console.error(error); // Log the raw error object
+    console.error(error);
     try {
       console.error("Stringified Supabase error in addQuestion:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } catch (e) {
@@ -261,7 +300,6 @@ export const getQuestions = async (): Promise<Question[]> => {
 export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
   const dbData: any = {};
 
-  // Map common fields
   if (data.questionType !== undefined) dbData.question_type = data.questionType;
   if (data.questionText !== undefined) dbData.question_text = data.questionText;
   if (data.difficulty !== undefined) dbData.difficulty = data.difficulty;
@@ -315,7 +353,10 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
     throw error;
   }
 };
-export const deleteQuestion = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteQuestion"); };
+export const deleteQuestion = async (id: string): Promise<void> => {
+    const { error } = await supabase.from('questions').delete().eq('id', id);
+    if (error) throw error;
+};
 export const getQuestionById = async (id: string): Promise<Question | null> => {
   const { data: q, error } = await supabase.from('questions').select('*').eq('id', id).single();
   if (error && error.code !== 'PGRST116') throw error;
@@ -414,12 +455,12 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
   if (questionsToInsertToDb.length > 0) {
     console.log(`[importQuestionsBatch] Attempting to insert ${questionsToInsertToDb.length} questions into Supabase...`);
     const { data: insertData, error, status, statusText, count } = await supabase.from('questions').insert(questionsToInsertToDb).select();
-    
+
     if (error) {
       console.error("[importQuestionsBatch] Supabase error during batch insert:", { message: error.message, details: error.details, hint: error.hint, code: error.code, rawError: JSON.stringify(error, Object.getOwnPropertyNames(error)) });
       throw new Error(`Supabase batch insert failed: ${error.message}. Details: ${error.details || 'N/A'}`);
     }
-    
+
     const insertedCount = insertData?.length || 0;
     console.log(`[importQuestionsBatch] Supabase insert response: Status: ${status}, Text: ${statusText}, Count from response: ${count}, Inserted Data Length: ${insertedCount}`);
 
@@ -453,7 +494,6 @@ export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at
     duration: data.durationInMinutes ?? data.duration ?? null,
   };
 
-  // Insert into exams table
   const { data: newExam, error: examError } = await supabase
     .from('exams')
     .insert(examDbData)
@@ -473,13 +513,11 @@ export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at
     throw new Error("Failed to add exam: No ID returned from database.");
   }
 
-  // Insert into exam_questions junction table
   if (data.questionIds && data.questionIds.length > 0) {
     const examQuestionsToInsert = data.questionIds.map((questionId, index) => ({
       exam_id: newExam.id,
       question_id: questionId,
-      order_number: index + 1, // Or however order is determined
-      // points: 1, // Default points as per your schema, or get from form
+      order_number: index + 1,
     }));
 
     const { error: eqError } = await supabase
@@ -488,7 +526,6 @@ export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at
 
     if (eqError) {
       console.error("Supabase error adding exam questions links:", eqError);
-      // Optionally, you might want to delete the exam if linking questions fails
       await supabase.from('exams').delete().eq('id', newExam.id);
       throw eqError;
     }
@@ -500,7 +537,7 @@ export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at
 export const getExams = async (): Promise<Exam[]> => {
   const { data, error } = await supabase
     .from('exams')
-    .select('*, exam_questions(count)'); // Fetches exams and a count of related exam_questions
+    .select('*, exam_questions(count)');
 
   if (error) {
     console.error("Supabase error fetching exams:", error);
@@ -551,9 +588,7 @@ export const updateExam = async (id: string, data: Partial<Omit<Exam, 'id' | 'cr
     }
   }
 
-  // Handle exam_questions links if questionIds are provided
   if (data.questionIds !== undefined) {
-    // Delete existing links
     const { error: deleteError } = await supabase
       .from('exam_questions')
       .delete()
@@ -564,13 +599,11 @@ export const updateExam = async (id: string, data: Partial<Omit<Exam, 'id' | 'cr
       throw deleteError;
     }
 
-    // Insert new links if there are any
     if (data.questionIds.length > 0) {
       const examQuestionsToInsert = data.questionIds.map((questionId, index) => ({
         exam_id: id,
         question_id: questionId,
         order_number: index + 1,
-        // points: 1, // Or from form data if available
       }));
 
       const { error: insertError } = await supabase
@@ -585,7 +618,6 @@ export const updateExam = async (id: string, data: Partial<Omit<Exam, 'id' | 'cr
   }
 };
 export const deleteExam = async (id: string): Promise<void> => {
-  // CASCADE constraint on exam_questions table should handle related deletions
   const { error } = await supabase.from('exams').delete().eq('id', id);
   if (error) {
     console.error("Supabase error deleting exam:", error);
@@ -599,16 +631,15 @@ export const getExamById = async (id: string): Promise<Exam | null> => {
     .eq('id', id)
     .single();
 
-  if (examError && examError.code !== 'PGRST116') { // Allow "single row not found"
+  if (examError && examError.code !== 'PGRST116') {
     console.error("Supabase error fetching exam by ID:", examError);
     throw examError;
   }
   if (!examData) return null;
 
-  // Fetch linked questions
   const { data: examQuestionsData, error: eqError } = await supabase
     .from('exam_questions')
-    .select('question_id, order_number, points, questions(*)') // Fetch related question details
+    .select('question_id, order_number, points, questions(*)')
     .eq('exam_id', id)
     .order('order_number', { ascending: true, nullsLast: true });
 
@@ -744,7 +775,7 @@ export const getAccessCodes = async (): Promise<AccessCode[]> => {
   const { data, error } = await supabase.from('activation_codes').select('*');
   if (error) throw error;
   return (data?.map(ac => ({
-    id: String(ac.id), // Ensure ID is string
+    id: String(ac.id),
     name: ac.name,
     encodedValue: ac.encoded_value,
     type: ac.type as AccessCodeType,
@@ -794,7 +825,7 @@ export const getAccessCodeById = async (id: string): Promise<AccessCode | null> 
   if (error && error.code !== 'PGRST116') throw error;
   if (!ac) return null;
   return {
-    id: String(ac.id), // Ensure ID is string
+    id: String(ac.id),
     name: ac.name,
     encodedValue: ac.encoded_value,
     type: ac.type as AccessCodeType,
@@ -892,7 +923,22 @@ export const getSubjectSections = async (subjectId: string): Promise<SubjectSect
     updated_at: section.updated_at,
   })) as SubjectSection[];
 };
-export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateSubjectSection"); };
+export const updateSubjectSection = async (subjectId: string, sectionId: string, data: Partial<Omit<SubjectSection, 'id' | 'subjectId' | 'created_at' | 'updated_at' | 'lessons'>>): Promise<void> => {
+  const sectionDbData: any = {};
+  if (data.title !== undefined) sectionDbData.title = data.title;
+  if (data.type !== undefined) sectionDbData.type = data.type;
+  if (data.order !== undefined) sectionDbData.order = data.order;
+  else if (data.hasOwnProperty('order') && data.order === null) sectionDbData.order = null;
+  if (data.isLocked !== undefined) sectionDbData.is_locked = data.isLocked;
+
+  const { error } = await supabase
+    .from('subject_sections')
+    .update(sectionDbData)
+    .eq('id', sectionId)
+    .eq('subject_id', subjectId);
+
+  if (error) throw error;
+};
 
 export const deleteSubjectSection = async (subjectId: string, sectionId: string): Promise<void> => {
   const { error } = await supabase
@@ -1002,7 +1048,10 @@ export const updateLesson = async (subjectId: string, sectionId: string, lessonI
     throw error;
   }
 };
-export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
+export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => {
+    const { error } = await supabase.from('lessons').delete().eq('id', lessonId);
+    if (error) throw error;
+};
 
 // --- Users (Profiles) ---
 const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
@@ -1014,23 +1063,23 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
     return {
       id: String(dbProfile.id),
       email: dbProfile.email || null,
-      name: dbProfile.name || null, // Changed from displayName, matches SQL 'name'
-      avatar_url: dbProfile.avatar_url || null, // From SQL
-      avatar_hint: dbProfile.avatar_hint || null, // From SQL
-      points: dbProfile.points || 0, // From SQL
-      level: dbProfile.level || 1, // From SQL
-      progress_to_next_level: dbProfile.progress_to_next_level || 0, // From SQL
-      badges: Array.isArray(dbProfile.badges) ? dbProfile.badges as Badge[] : [], // From SQL (jsonb) - maps to 'badges' column
-      rewards: Array.isArray(dbProfile.rewards) ? dbProfile.rewards as Reward[] : [], // From SQL (jsonb) - maps to 'rewards' column
-      student_goals: dbProfile.student_goals || null, // From SQL
-      branch: dbProfile.branch as SubjectBranchEnum || null, // From SQL - maps to 'branch' column
-      university: dbProfile.university || null, // From SQL
-      major: dbProfile.major || null, // From SQL
-      active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null, // From SQL (jsonb) - maps to 'active_subscription' column
-      role: dbProfile.role as UserProfile['role'] || 'user', // From SQL
-      youtube_channel_url: dbProfile.youtube_channel_url || null, // From SQL
-      subjects_taught_ids: Array.isArray(dbProfile.subjects_taught_ids) ? dbProfile.subjects_taught_ids : (dbProfile.subjects_taught_ids ? [dbProfile.subjects_taught_ids] : null), // Handle array or single, and map from snake_case
-      created_at: dbProfile.created_at, // Supabase uses snake_case ISO date strings
+      name: dbProfile.name || null,
+      avatar_url: dbProfile.avatar_url || null,
+      avatar_hint: dbProfile.avatar_hint || null,
+      points: dbProfile.points || 0,
+      level: dbProfile.level || 1,
+      progress_to_next_level: dbProfile.progress_to_next_level || 0,
+      badges: Array.isArray(dbProfile.badges) ? dbProfile.badges as Badge[] : [],
+      rewards: Array.isArray(dbProfile.rewards) ? dbProfile.rewards as Reward[] : [],
+      student_goals: dbProfile.student_goals || null,
+      branch: dbProfile.branch as SubjectBranchEnum || null,
+      university: dbProfile.university || null,
+      major: dbProfile.major || null,
+      active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null,
+      role: dbProfile.role as UserProfile['role'] || 'user',
+      youtube_channel_url: dbProfile.youtube_channel_url || null,
+      subjects_taught_ids: Array.isArray(dbProfile.subjects_taught_ids) ? dbProfile.subjects_taught_ids : (dbProfile.subjects_taught_ids ? [dbProfile.subjects_taught_ids] : null),
+      created_at: dbProfile.created_at,
       updated_at: dbProfile.updated_at,
     };
   } catch (error) {
@@ -1045,10 +1094,9 @@ const mapUserProfileToDbProfile = (userProfileData: Partial<UserProfile>): any =
   if (userProfileData.name !== undefined) dbData.name = userProfileData.name;
   if (userProfileData.role !== undefined) dbData.role = userProfileData.role;
   if (userProfileData.youtube_channel_url !== undefined) dbData.youtube_channel_url = userProfileData.youtube_channel_url;
-  // Ensure subjects_taught_ids is handled as an array or null for Supabase
   if (userProfileData.subjects_taught_ids !== undefined) {
-    dbData.subjects_taught_ids = Array.isArray(userProfileData.subjects_taught_ids) && userProfileData.subjects_taught_ids.length > 0 
-      ? userProfileData.subjects_taught_ids 
+    dbData.subjects_taught_ids = Array.isArray(userProfileData.subjects_taught_ids) && userProfileData.subjects_taught_ids.length > 0
+      ? userProfileData.subjects_taught_ids
       : null;
   }
   if (userProfileData.avatar_url !== undefined) dbData.avatar_url = userProfileData.avatar_url;
@@ -1114,15 +1162,10 @@ export const getUserByEmail = async (email: string): Promise<UserProfile | null>
 };
 
 export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
-  // For updating teacher subjects, we need a different approach due to the junction table.
-  // This function will handle non-subject updates.
-  // A separate function will handle teacher_subjects updates.
-
   const profileDbData: any = {};
   if (data.name !== undefined) profileDbData.name = data.name;
   if (data.role !== undefined) profileDbData.role = data.role;
   if (data.youtube_channel_url !== undefined) profileDbData.youtube_channel_url = data.youtube_channel_url;
-  // Add other non-array profile fields here
 
   if (Object.keys(profileDbData).length > 0) {
     const { error: profileError } = await supabase.from('profiles').update(profileDbData).eq('id', id);
@@ -1132,9 +1175,7 @@ export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id
     }
   }
 
-  // Handle subjects_taught_ids by updating the teacher_subjects junction table
-  if (data.subjects_taught_ids !== undefined && data.role === 'teacher') {
-    // 1. Delete existing subject associations for this teacher
+  if (data.subjects_taught_ids !== undefined && (data.role === 'teacher' || data.role === 'admin')) {
     const { error: deleteError } = await supabase
       .from('teacher_subjects')
       .delete()
@@ -1145,7 +1186,6 @@ export const updateUser = async (id: string, data: Partial<Omit<UserProfile, 'id
       throw deleteError;
     }
 
-    // 2. Insert new subject associations if any
     if (data.subjects_taught_ids && data.subjects_taught_ids.length > 0) {
       const teacherSubjectsToInsert = data.subjects_taught_ids.map(subjectId => ({
         teacher_id: id,
@@ -1181,8 +1221,6 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
   return data.map(profile => {
     const userProfile = mapDbProfileToUserProfile(profile);
     if (userProfile) {
-      // The raw 'teacher_subjects' will be an array of objects like [{ subject_id: 'uuid1' }, { subject_id: 'uuid2' }]
-      // We need to extract the subject_id values into a simple array of strings.
       const taughtSubjectIds = Array.isArray(profile.teacher_subjects)
         ? profile.teacher_subjects.map((ts: any) => ts.subject_id).filter(Boolean)
         : [];
@@ -1192,10 +1230,7 @@ export const getTeachers = async (): Promise<UserProfile[]> => {
   }).filter(profile => profile !== null) as UserProfile[];
 };
 
-// This specific function might be better handled within the `updateUser` or a new `assignSubjectsToTeacher` function
-// that manages the `teacher_subjects` junction table.
 export const updateTeacherSubjects = async (teacherId: string, subjectIds: string[] | null): Promise<void> => {
-  // 1. Delete existing subject associations for this teacher
   const { error: deleteError } = await supabase
     .from('teacher_subjects')
     .delete()
@@ -1206,7 +1241,6 @@ export const updateTeacherSubjects = async (teacherId: string, subjectIds: strin
     throw deleteError;
   }
 
-  // 2. Insert new subject associations if any
   if (subjectIds && subjectIds.length > 0) {
     const teacherSubjectsToInsert = subjectIds.map(subjectId => ({
       teacher_id: teacherId,
@@ -1239,14 +1273,20 @@ export const getQuestionsForLesson = async (lessonId: string): Promise<Question[
 
   return data.map((q: any) => mapDbQuestionToQuestionType(q)).filter(q => q !== null) as Question[];
 };
-export const unlinkQuestionFromLesson = async (questionId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": unlinkQuestionFromLesson"); };
+export const unlinkQuestionFromLesson = async (questionId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('questions')
+        .update({ lesson_id: null })
+        .eq('id', questionId);
+    if (error) throw error;
+};
 export const getSubjectNameById = async (subjectId: string): Promise<string | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getSubjectNameById"); };
 
 // --- Tags ---
 export const addTag = async (data: Omit<Tag, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
   const { data: newTag, error } = await supabase.from('tags').insert(data).select('id').single();
   if (error) throw error;
-  return String(newTag.id); // Ensure ID is string
+  return String(newTag.id);
 };
 export const getTags = async (): Promise<Tag[]> => {
   const { data, error } = await supabase
@@ -1260,13 +1300,19 @@ export const getTags = async (): Promise<Tag[]> => {
   }
   return (data?.map(t => ({
     ...t,
-    id: String(t.id), // Ensure ID is string
+    id: String(t.id),
     createdAt: t.created_at,
     updatedAt: t.updated_at,
   })) as Tag[]) || [];
 };
-export const updateTag = async (id: string, data: Partial<Omit<Tag, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateTag"); };
-export const deleteTag = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteTag"); };
+export const updateTag = async (id: string, data: Partial<Omit<Tag, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+    const { error } = await supabase.from('tags').update(data).eq('id', id);
+    if (error) throw error;
+};
+export const deleteTag = async (id: string): Promise<void> => {
+    const { error } = await supabase.from('tags').delete().eq('id', id);
+    if (error) throw error;
+};
 
 // --- Exam Attempts ---
 export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> => {
@@ -1311,7 +1357,7 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
     score: attempt.score,
     correctAnswersCount: attempt.correct_answers_count,
     totalQuestionsAttempted: attempt.total_questions_attempted,
-    answers: attempt.answers as AnswerAttempt[], // Ensure AnswerAttempt is correctly defined
+    answers: attempt.answers as AnswerAttempt[],
     startedAt: attempt.started_at,
     completedAt: attempt.completed_at,
     created_at: attempt.created_at,
@@ -1326,9 +1372,9 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
     .from('app_settings')
     .select('*')
     .limit(1)
-    .single(); // Expects a single row or no row
+    .single();
 
-  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
+  if (error && error.code !== 'PGRST116') {
     console.error("Supabase error fetching app settings:", error);
     throw error;
   }
@@ -1352,7 +1398,6 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
 
 export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
   const settingsToUpdate: any = {};
-  // Map camelCase to snake_case and handle undefined explicitly for Supabase
   if (settings.hasOwnProperty('appName')) settingsToUpdate.app_name = settings.appName;
   if (settings.hasOwnProperty('appLogoUrl')) settingsToUpdate.app_logo_url = settings.appLogoUrl;
   if (settings.hasOwnProperty('supportPhoneNumber')) settingsToUpdate.support_phone_number = settings.supportPhoneNumber;
@@ -1375,12 +1420,9 @@ export const updateAppSettings = async (settings: Partial<Omit<AppSettings, 'id'
       throw error;
     }
   } else {
-    // If no settings exist, insert them. This assumes your app_settings table has a primary key that can be omitted for auto-generation or is handled by Supabase policies/defaults.
-    // If 'id' is required for insert, you'd need to handle that, e.g., by providing a default ID or ensuring the table auto-generates it.
-    // For a settings table usually having one row, ensure your insert logic matches how you want to handle this single row (e.g. `upsert` if id is known/fixed`).
     const { error } = await supabase
       .from('app_settings')
-      .insert([settingsToUpdate]); // Pass as an array for insert
+      .insert([settingsToUpdate]);
 
     if (error) {
       console.error("Supabase error inserting app settings:", error);
@@ -1399,7 +1441,7 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
     title: data.title,
     message: data.message,
     type: data.type,
-    is_active: data.isActive, // Map isActive to is_active
+    is_active: data.isActive,
   };
   const { data: newAnnouncement, error } = await supabase
     .from('announcements')
@@ -1419,13 +1461,7 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
   if (!newAnnouncement || !newAnnouncement.id) {
     throw new Error("Failed to add announcement: No ID returned from database.");
   }
-
-  // The creation of student notifications will be handled by a Supabase Database Trigger
-  // listening to inserts on the 'announcements' table.
-  // The trigger will iterate through all users with 'student' role (or all users if preferred)
-  // and insert into 'user_notifications'.
   console.log(`[addAnnouncement] Announcement ${newAnnouncement.id} added. A DB trigger should now create user_notifications.`);
-
   return String(newAnnouncement.id);
 };
 
@@ -1446,14 +1482,39 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
     title: item.title,
     message: item.message,
     type: item.type as AnnouncementType,
-    isActive: item.is_active, // Map is_active to isActive
+    isActive: item.is_active,
     created_at: item.created_at,
     updated_at: item.updated_at,
   })) as Announcement[];
 };
-export const updateAnnouncement = async (id: string, data: Partial<Omit<Announcement, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateAnnouncement"); };
-export const deleteAnnouncement = async (id: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteAnnouncement"); };
-export const getAnnouncementById = async (id: string): Promise<Announcement | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getAnnouncementById"); };
+export const updateAnnouncement = async (id: string, data: Partial<Omit<Announcement, 'id' | 'created_at' | 'updated_at'>>): Promise<void> => {
+    const dbData: any = {};
+    if (data.title !== undefined) dbData.title = data.title;
+    if (data.message !== undefined) dbData.message = data.message;
+    if (data.type !== undefined) dbData.type = data.type;
+    if (data.isActive !== undefined) dbData.is_active = data.isActive;
+
+    const { error } = await supabase.from('announcements').update(dbData).eq('id', id);
+    if (error) throw error;
+};
+export const deleteAnnouncement = async (id: string): Promise<void> => {
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (error) throw error;
+};
+export const getAnnouncementById = async (id: string): Promise<Announcement | null> => {
+    const { data: item, error } = await supabase.from('announcements').select('*').eq('id', id).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    if (!item) return null;
+    return {
+        id: String(item.id),
+        title: item.title,
+        message: item.message,
+        type: item.type as AnnouncementType,
+        isActive: item.is_active,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+    } as Announcement;
+};
 
 // --- Admin Notifications ---
 export const getAdminNotifications = async (options?: { limit?: number; unreadOnly?: boolean }): Promise<AdminNotification[]> => {
@@ -1468,14 +1529,12 @@ export const getAdminNotifications = async (options?: { limit?: number; unreadOn
   if (options?.limit) {
     query = query.limit(options.limit);
   }
-  
+
   const { data, error } = await query;
 
   if (error) {
     console.error("Supabase error fetching admin notifications:", error);
-    // Instead of throwing, return empty or handle specific errors
-    // For now, returning empty so the UI doesn't break if DB is temporarily down.
-    return []; 
+    return [];
   }
   return (data?.map(n => ({
     id: String(n.id),
@@ -1486,19 +1545,18 @@ export const getAdminNotifications = async (options?: { limit?: number; unreadOn
     related_entity_type: n.related_entity_type,
     is_read: n.is_read,
     created_at: n.created_at,
-    updated_at: n.updated_at, // Added updated_at to match type
+    updated_at: n.updated_at,
   })) as AdminNotification[]) || [];
 };
 
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
   const { error } = await supabase
     .from('admin_notifications')
-    .update({ is_read: true, updated_at: new Date().toISOString() }) // Ensure updated_at is set
+    .update({ is_read: true, updated_at: new Date().toISOString() })
     .eq('id', notificationId);
 
   if (error) {
     console.error("Supabase error marking notification as read:", error);
-    // Optionally throw, or handle (e.g., UI feedback)
   }
 };
 
@@ -1522,12 +1580,12 @@ export const getUserNotifications = async (userId: string, options?: { limit?: n
   if (options?.limit) {
     query = query.limit(options.limit);
   }
-  
+
   const { data, error } = await query;
 
   if (error) {
     console.error(`[getUserNotifications] Supabase error fetching notifications for user ${userId}:`, error);
-    throw error; 
+    throw error;
   }
   return (data?.map(n => ({
     id: String(n.id),
@@ -1569,7 +1627,7 @@ export const markAllUserNotificationsAsRead = async (userId: string): Promise<vo
     .from('user_notifications')
     .update({ is_read: true, updated_at: new Date().toISOString() })
     .eq('user_id', userId)
-    .eq('is_read', false); // Only update unread ones
+    .eq('is_read', false);
 
   if (error) {
     console.error(`[markAllUserNotificationsAsRead] Supabase error marking all notifications as read for user ${userId}:`, error);
@@ -1633,4 +1691,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
         throw error;
     }
 };
-export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_

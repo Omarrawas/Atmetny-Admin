@@ -8,5 +8,7 @@ export const useAuth = () => {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  // Add isTeacher for convenience, it's already in context but this makes it direct.
+  // const isTeacher = context.userProfile?.role === 'teacher'; // This was redundant
+  return { ...context }; // Return the whole context as isTeacher is already part of it
 };
