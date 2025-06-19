@@ -23,8 +23,8 @@ import { getQuestionById, updateQuestion, getSubjects, getTags, addTag as create
 import { useParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, SaveIcon, TagsIcon } from 'lucide-react';
-import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion } from '@/types';
-import { arabicQuestionSanityCheck, ArabicQuestionSanityCheckOutput } from '@/ai/flows/arabic-question-sanity-check';
+import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ArabicQuestionSanityCheckOutput } from '@/types';
+import { arabicQuestionSanityCheck } from '@/ai/flows/arabic-question-sanity-check';
 import { suggestQuestionTags } from '@/ai/flows/suggest-question-tags-flow'; // Import the new flow
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -163,7 +163,7 @@ export default function EditQuestionPage() {
   useEffect(() => {
     const questionIdFromParams = params?.id as string;
     if (!questionIdFromParams) {
-        toast({ variant: "destructive", title: "Error", description: "Question ID is missing." });
+        toast({ variant: "destructive", title: "خطأ", description: "معرف السؤال مفقود." });
         router.push('/dashboard/questions');
         return;
     }
@@ -180,7 +180,7 @@ export default function EditQuestionPage() {
       try {
         fetchedQuestionData = await getQuestionById(questionIdFromParams);
         if (!fetchedQuestionData) {
-          toast({ variant: "destructive", title: "Error", description: "Question not found." });
+          toast({ variant: "destructive", title: "خطأ", description: "السؤال غير موجود." });
           router.push('/dashboard/questions');
           return;
         }
@@ -190,7 +190,7 @@ export default function EditQuestionPage() {
         }
       } catch (error) {
         console.error("Error fetching question:", error);
-        toast({ variant: "destructive", title: "Error", description: "Failed to fetch question data." });
+        toast({ variant: "destructive", title: "خطأ", description: "فشل في جلب بيانات السؤال." });
       } finally {
         setIsFetchingQuestion(false);
       }
@@ -263,7 +263,11 @@ export default function EditQuestionPage() {
   const handleAiCheck = async () => {
     const questionText = form.getValues("questionText");
      if (!questionText.trim()) {
-      toast({ variant: "destructive", title: "Cannot Check Empty Question", description: "Please enter some text for the question." });
+      toast({ 
+        variant: "destructive", 
+        title: "نص السؤال فارغ", 
+        description: "الرجاء إدخال نص السؤال أولاً قبل إجراء الفحص." 
+      });
       return;
     }
     setIsAiChecking(true);
@@ -271,10 +275,17 @@ export default function EditQuestionPage() {
     try {
       const result = await arabicQuestionSanityCheck({ question: questionText });
       setAiCheckResult(result);
-      toast({ title: "AI Sanity Check Complete", description: result.isSane ? "Question seems valid." : "Question might have issues." });
+      toast({ 
+        title: "فحص سلامة اللغة العربية", 
+        description: result.isSane ? "السؤال يبدو سليمًا لغويًا." : "تم العثور على ملاحظات على السؤال." 
+      });
     } catch (error) {
       console.error("AI Sanity Check Error:", error);
-      toast({ variant: "destructive", title: "AI Check Failed", description: "Could not perform sanity check." });
+      toast({ 
+        variant: "destructive", 
+        title: "فشل فحص AI", 
+        description: "لم نتمكن من إجراء فحص سلامة اللغة للسؤال." 
+      });
     } finally {
       setIsAiChecking(false);
     }
@@ -306,7 +317,7 @@ export default function EditQuestionPage() {
         } else {
           // Create new tag
           const newTagId = await createTagInDb({ name: suggestedTagName.trim() });
-          const newTag: Tag = { id: newTagId, name: suggestedTagName.trim(), createdAt: new Date() as any, updatedAt: new Date() as any };
+          const newTag: Tag = { id: newTagId, name: suggestedTagName.trim(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
           setAvailableTags(prev => [...prev, newTag]); // Add to local list for immediate UI update
           updatedTagIds.add(newTagId);
           newTagsCreatedCount++;
@@ -333,7 +344,7 @@ export default function EditQuestionPage() {
     try {
       const selectedSubject = availableSubjects.find(s => s.id === data.subjectId);
       if (!selectedSubject) {
-        toast({ variant: "destructive", title: "Error", description: "Selected subject not found." });
+        toast({ variant: "destructive", title: "خطأ", description: "المادة المختارة غير موجودة." });
         setIsLoading(false);
         return;
       }
@@ -348,7 +359,7 @@ export default function EditQuestionPage() {
         }));
         const correctOptionIndex = parseInt(mcqData.correctOptionIndex, 10);
         if (isNaN(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex >= optionsWithIds.length) {
-           toast({ variant: "destructive", title: "Error", description: "Invalid correct option selected for MCQ." });
+           toast({ variant: "destructive", title: "خطأ", description: "الخيار الصحيح المحدد لـ MCQ غير صالح." });
            setIsLoading(false);
            return;
         }
@@ -361,8 +372,8 @@ export default function EditQuestionPage() {
           difficulty: mcqData.difficulty,
           subjectId: selectedSubject.id,
           subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : initialQuestionData?.isSane ?? null,
-          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : initialQuestionData?.sanityExplanation ?? null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : (initialQuestionData?.isSane ?? null),
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : (initialQuestionData?.sanityExplanation ?? null),
           tagIds: mcqData.tagIds || [],
           lessonId: initialQuestionData?.lessonId || null,
         };
@@ -379,8 +390,8 @@ export default function EditQuestionPage() {
           difficulty: tfData.difficulty,
           subjectId: selectedSubject.id,
           subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : initialQuestionData?.isSane ?? null,
-          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : initialQuestionData?.sanityExplanation ?? null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : (initialQuestionData?.isSane ?? null),
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : (initialQuestionData?.sanityExplanation ?? null),
           tagIds: tfData.tagIds || [],
           lessonId: initialQuestionData?.lessonId || null,
         };
@@ -393,8 +404,8 @@ export default function EditQuestionPage() {
           difficulty: fitbData.difficulty,
           subjectId: selectedSubject.id,
           subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : initialQuestionData?.isSane ?? null,
-          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : initialQuestionData?.sanityExplanation ?? null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : (initialQuestionData?.isSane ?? null),
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : (initialQuestionData?.sanityExplanation ?? null),
           tagIds: fitbData.tagIds || [],
           lessonId: initialQuestionData?.lessonId || null,
         };
@@ -407,8 +418,8 @@ export default function EditQuestionPage() {
           difficulty: saData.difficulty,
           subjectId: selectedSubject.id,
           subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : initialQuestionData?.isSane ?? null,
-          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : initialQuestionData?.sanityExplanation ?? null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : (initialQuestionData?.isSane ?? null),
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : (initialQuestionData?.sanityExplanation ?? null),
           tagIds: saData.tagIds || [],
           lessonId: initialQuestionData?.lessonId || null,
         };
@@ -416,11 +427,11 @@ export default function EditQuestionPage() {
 
 
       await updateQuestion(questionIdFromParams, updatedQuestionPayload);
-      toast({ title: "Success!", description: "Question updated successfully." });
+      toast({ title: "نجاح!", description: "تم تحديث السؤال بنجاح." });
       router.push('/dashboard/questions');
     } catch (error) {
       console.error("Error updating question:", error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to update question." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث السؤال." });
     } finally {
       setIsLoading(false);
     }
@@ -442,9 +453,9 @@ export default function EditQuestionPage() {
       <CardHeader>
         <div className="flex items-center space-x-3 rtl:space-x-reverse">
           <BookCopy className="h-8 w-8 text-primary" />
-          <CardTitle className="text-2xl font-bold">Edit Question</CardTitle>
+          <CardTitle className="text-2xl font-bold">تعديل السؤال</CardTitle>
         </div>
-        <CardDescription>Modify the details for the existing question.</CardDescription>
+        <CardDescription>قم بتعديل تفاصيل السؤال الحالي.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -454,7 +465,7 @@ export default function EditQuestionPage() {
               name="subjectId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Subject</FormLabel>
+                  <FormLabel>المادة</FormLabel>
                    <Select 
                     onValueChange={field.onChange} 
                     value={field.value} 
@@ -462,18 +473,18 @@ export default function EditQuestionPage() {
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select the subject for the question" />
+                        <SelectValue placeholder="اختر المادة للسؤال" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {isFetchingSubjects && availableSubjects.length === 0 ? ( 
                         <div className="flex items-center justify-center p-4">
                           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          <span className="ml-2 rtl:mr-2">Loading subjects...</span>
+                          <span className="ml-2 rtl:mr-2">جاري تحميل المواد...</span>
                         </div>
                       ) : availableSubjects.length === 0 ? (
                          <div className="p-4 text-center text-muted-foreground">
-                           No subjects added yet. Please <a href="/dashboard/subjects" className="text-primary hover:underline">add a subject</a> first.
+                           لا توجد مواد مضافة. يرجى <a href="/dashboard/subjects" className="text-primary hover:underline">إضافة مادة</a> أولاً.
                          </div>
                       ) : (
                         availableSubjects.map((subject) => (
@@ -519,7 +530,7 @@ export default function EditQuestionPage() {
               name="questionText"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Question Text (Arabic)</FormLabel>
+                  <FormLabel>نص السؤال (عربي)</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder={
@@ -531,7 +542,7 @@ export default function EditQuestionPage() {
                       rows={4} 
                     />
                   </FormControl>
-                  <FormDescription>This is the main text for the question.</FormDescription>
+                  <FormDescription>هذا هو النص الأساسي للسؤال.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -540,11 +551,11 @@ export default function EditQuestionPage() {
             <div className="space-x-2 rtl:space-x-reverse flex items-center">
                 <Button type="button" variant="outline" onClick={handleAiCheck} disabled={isAiChecking || isLoading || isSuggestingTags}>
                 {isAiChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Arabic Sanity Check
+                فحص سلامة اللغة العربية
                 </Button>
                 <Button type="button" variant="outline" onClick={handleAiSuggestTags} disabled={isSuggestingTags || isLoading || isAiChecking}>
                     {isSuggestingTags ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    Suggest Tags with AI
+                    اقترح تصنيفات بالذكاء الاصطناعي
                 </Button>
             </div>
 
@@ -552,7 +563,7 @@ export default function EditQuestionPage() {
             {aiCheckResult && (
               <Alert variant={aiCheckResult.isSane ? "default" : "destructive"} className="mt-4">
                 {aiCheckResult.isSane ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                <AlertTitle>{aiCheckResult.isSane ? "AI Check: Looks Good!" : "AI Check: Potential Issues Found"}</AlertTitle>
+                <AlertTitle>{aiCheckResult.isSane ? "فحص AI: يبدو جيدًا!" : "فحص AI: تم العثور على مشاكل محتملة"}</AlertTitle>
                 <AlertDescription>{aiCheckResult.explanation}</AlertDescription>
               </Alert>
             )}
@@ -560,7 +571,7 @@ export default function EditQuestionPage() {
             {watchedQuestionType === 'mcq' && (
               <>
                 <div>
-                  <Label>Options</Label>
+                  <Label>الخيارات</Label>
                   <div className="space-y-4 mt-2">
                     {mcqOptionFields.map((item, index) => (
                       <FormField
@@ -570,7 +581,7 @@ export default function EditQuestionPage() {
                         render={({ field: optionField }) => (
                           <FormItem>
                             <div className="flex items-center gap-2">
-                              <FormControl><Input placeholder={`Option ${index + 1}`} {...optionField} /></FormControl>
+                              <FormControl><Input placeholder={`الخيار ${index + 1}`} {...optionField} /></FormControl>
                               {mcqOptionFields.length > 2 && (
                                 <Button type="button" variant="destructive" size="icon" onClick={() => removeMcqOption(index)} disabled={isLoading}>
                                   <Trash2 className="h-4 w-4" />
@@ -585,7 +596,7 @@ export default function EditQuestionPage() {
                   </div>
                   {mcqOptionFields.length < 6 && (
                     <Button type="button" variant="outline" size="sm" onClick={() => appendMcqOption({ text: '' })} className="mt-2" disabled={isLoading}>
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Option
+                      <PlusCircle className="mr-2 h-4 w-4" /> أضف خيارًا
                     </Button>
                   )}
                 </div>
@@ -596,14 +607,14 @@ export default function EditQuestionPage() {
                   name="correctOptionIndex"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Correct Answer</FormLabel>
+                      <FormLabel>الإجابة الصحيحة</FormLabel>
                       <Select onValueChange={field.onChange} value={String(field.value)} disabled={isLoading}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select the correct option" /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger><SelectValue placeholder="اختر الإجابة الصحيحة" /></SelectTrigger></FormControl>
                         <SelectContent>
                            {/* @ts-ignore */}
                           {(form.getValues("options") || []).map((option, index) => (
                             <SelectItem key={index} value={index.toString()} disabled={!option.text?.trim()}>
-                              Option {index + 1}: {option.text?.length > 30 ? option.text.substring(0,30) + '...' : option.text}
+                              الخيار {index + 1}: {option.text?.length > 30 ? option.text.substring(0,30) + '...' : option.text}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -720,13 +731,13 @@ export default function EditQuestionPage() {
               name="difficulty"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Difficulty</FormLabel>
+                  <FormLabel>مستوى الصعوبة</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select difficulty level" /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="اختر مستوى الصعوبة" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
+                      <SelectItem value="easy">سهل</SelectItem>
+                      <SelectItem value="medium">متوسط</SelectItem>
+                      <SelectItem value="hard">صعب</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -742,20 +753,20 @@ export default function EditQuestionPage() {
                   <div className="mb-2">
                     <FormLabel className="text-base flex items-center">
                       <TagsIcon className="h-5 w-5 mr-2 rtl:ml-2 rtl:mr-0 text-primary" />
-                      Tags (Optional)
+                      التصنيفات (اختياري)
                     </FormLabel>
                     <FormDescription>
-                      Select relevant tags for this question.
+                      اختر التصنيفات ذات الصلة بهذا السؤال.
                     </FormDescription>
                   </div>
                   {isFetchingTags ? (
                     <div className="flex items-center justify-center p-2">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        <span className="ml-2 rtl:mr-2">Loading tags...</span>
+                        <span className="ml-2 rtl:mr-2">جاري تحميل التصنيفات...</span>
                     </div>
                   ) : availableTags.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No tags available. You can add tags on the <a href="/dashboard/tags" className="text-primary hover:underline">Tags page</a>.
+                      لا توجد تصنيفات متاحة. يمكنك إضافة تصنيفات من <a href="/dashboard/tags" className="text-primary hover:underline">صفحة التصنيفات</a>.
                     </p>
                   ) : (
                     <ScrollArea className="h-40 rounded-md border p-3">
@@ -803,10 +814,10 @@ export default function EditQuestionPage() {
 
 
             <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>إلغاء</Button>
                 <Button type="submit" disabled={!canSubmit}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SaveIcon className="mr-2 h-4 w-4" />}
-                  Save Changes
+                  حفظ التغييرات
                 </Button>
             </div>
           </form>

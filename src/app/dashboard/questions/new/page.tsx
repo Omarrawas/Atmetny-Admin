@@ -23,8 +23,8 @@ import { addQuestion, getSubjects, getTags, addTag as createTagInDb, getSubjectS
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book, Search } from 'lucide-react';
-import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, SubjectSection, Lesson } from '@/types';
-import { arabicQuestionSanityCheck, ArabicQuestionSanityCheckOutput } from '@/ai/flows/arabic-question-sanity-check';
+import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, SubjectSection, Lesson, ArabicQuestionSanityCheckOutput } from '@/types';
+import { arabicQuestionSanityCheck } from '@/ai/flows/arabic-question-sanity-check';
 import { suggestQuestionTags } from '@/ai/flows/suggest-question-tags-flow';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -246,18 +246,29 @@ export default function NewQuestionPage() {
   const handleAiCheck = async () => {
     const questionText = form.getValues("questionText");
     if (!questionText.trim()) {
-      toast({ variant: "destructive", title: "Cannot Check Empty Question" });
+      toast({
+        variant: "destructive",
+        title: "نص السؤال فارغ",
+        description: "الرجاء إدخال نص السؤال أولاً قبل إجراء الفحص.",
+      });
       return;
     }
     setIsAiChecking(true);
-    setAiCheckResult(null);
+    setAiCheckResult(null); // Reset previous result
     try {
       const result = await arabicQuestionSanityCheck({ question: questionText });
       setAiCheckResult(result);
-      toast({ title: "AI Sanity Check Complete" });
+      toast({
+        title: "فحص سلامة اللغة العربية",
+        description: result.isSane ? "السؤال يبدو سليمًا لغويًا." : "تم العثور على ملاحظات على السؤال.",
+      });
     } catch (error) {
       console.error("AI Sanity Check Error:", error);
-      toast({ variant: "destructive", title: "AI Check Failed" });
+      toast({
+        variant: "destructive",
+        title: "فشل فحص AI",
+        description: "لم نتمكن من إجراء فحص سلامة اللغة للسؤال.",
+      });
     } finally {
       setIsAiChecking(false);
     }
@@ -266,7 +277,7 @@ export default function NewQuestionPage() {
   const handleAiSuggestTags = async () => {
     const questionText = form.getValues("questionText");
     if (!questionText.trim()) {
-      toast({ variant: "destructive", title: "نص السؤال فارغ" });
+      toast({ variant: "destructive", title: "نص السؤال فارغ", description: "الرجاء إدخال نص السؤال أولاً لاقتراح التصنيفات." });
       return;
     }
     setIsSuggestingTags(true);
@@ -299,7 +310,7 @@ export default function NewQuestionPage() {
       toast({ title: "اقتراح التصنيفات", description: toastMessage });
     } catch (error) {
       console.error("AI Tag Suggestion Error:", error);
-      toast({ variant: "destructive", title: "فشل اقتراح التصنيفات" });
+      toast({ variant: "destructive", title: "فشل اقتراح التصنيفات", description: "لم نتمكن من اقتراح تصنيفات. يرجى المحاولة مرة أخرى." });
     } finally {
       setIsSuggestingTags(false);
     }
@@ -358,7 +369,8 @@ export default function NewQuestionPage() {
         questionPayload = {
           questionType: 'mcq', questionText: data.questionText, options: optionsWithIds, correctOptionId: correctOptionId,
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : null, 
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       } else if (data.questionType === 'true_false') {
@@ -366,7 +378,8 @@ export default function NewQuestionPage() {
         questionPayload = {
           questionType: 'true_false', questionText: data.questionText, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
           correctOptionId: tfData.correctBooleanAnswer, difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : null, 
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       } else if (data.questionType === 'fill_in_the_blanks') {
@@ -374,7 +387,8 @@ export default function NewQuestionPage() {
         questionPayload = {
           questionType: 'fill_in_the_blanks', questionText: data.questionText, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : null, 
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       } else { 
@@ -382,7 +396,8 @@ export default function NewQuestionPage() {
          questionPayload = {
           questionType: 'short_answer', questionText: data.questionText, modelAnswer: saData.modelAnswer || undefined,
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
-          isSane: aiCheckResult ? aiCheckResult.isSane : null, sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
+          isSane: aiCheckResult ? aiCheckResult.isSane : null, 
+          sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
           tagIds: data.tagIds || [], lessonId: data.lessonId || null,
         };
       }
@@ -404,9 +419,9 @@ export default function NewQuestionPage() {
       <CardHeader>
         <div className="flex items-center space-x-3 rtl:space-x-reverse">
           <PlusCircle className="h-8 w-8 text-primary" />
-          <CardTitle className="text-2xl font-bold">Add New Question</CardTitle>
+          <CardTitle className="text-2xl font-bold">إضافة سؤال جديد</CardTitle>
         </div>
-        <CardDescription>Fill in the details for the new question.</CardDescription>
+        <CardDescription>املأ تفاصيل السؤال الجديد.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

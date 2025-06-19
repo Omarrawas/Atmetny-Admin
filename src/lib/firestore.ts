@@ -474,7 +474,6 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
 };
 
 
-
 // --- Exams ---
 export const addExam = async (data: Omit<Exam, 'id' | 'created_at' | 'updated_at' | 'questionCount' | 'questions'> & { questionIds?: string[] }): Promise<string> => {
   const examDbData: any = {
@@ -1460,6 +1459,7 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
   // listening to inserts on the 'announcements' table.
   // The trigger will iterate through all users with 'student' role (or all users if preferred)
   // and insert into 'user_notifications'.
+  console.log(`[addAnnouncement] Announcement ${newAnnouncement.id} added. A DB trigger should now create user_notifications.`);
 
   return String(newAnnouncement.id);
 };
