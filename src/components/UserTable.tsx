@@ -1,4 +1,3 @@
-
 // src/components/UserTable.tsx
 "use client";
 
@@ -44,12 +43,12 @@ export default function UserTable() {
     } catch (error: any) {
       console.error("Error fetching users:", error);
       if (error.message && error.message.includes(NOT_IMPLEMENTED_ERROR)) {
-         toast({ variant: "destructive", title: "Function Not Implemented", description: "User management requires Supabase backend implementation." });
+         toast({ variant: "destructive", title: "وظيفة غير منفذة", description: "إدارة المستخدمين تتطلب تطبيق الواجهة الخلفية لـ Supabase." });
       } else {
         toast({
           variant: "destructive",
-          title: "Error Fetching Users",
-          description: "Could not load user data. Please try again.",
+          title: "خطأ في جلب المستخدمين",
+          description: "لم نتمكن من تحميل بيانات المستخدمين. يرجى المحاولة مرة أخرى.",
         });
       }
     } finally {
@@ -61,8 +60,8 @@ export default function UserTable() {
     if (!newRole) {
         toast({
             variant: "destructive",
-            title: "Invalid Role",
-            description: "Please select a valid role.",
+            title: "دور غير صالح",
+            description: "الرجاء اختيار دور صالح.",
         });
         return;
     }
@@ -71,8 +70,8 @@ export default function UserTable() {
       // Assuming updateUser from lib/firestore will be adapted for Supabase
       await updateUser(userId, { role: newRole });
       toast({
-        title: "Role Updated",
-        description: `User's role successfully changed to ${newRole}.`,
+        title: "تم تحديث الدور",
+        description: `تم تغيير دور المستخدم بنجاح إلى ${newRole}.`,
       });
       setUsers(prevUsers =>
         prevUsers.map(user =>
@@ -82,12 +81,12 @@ export default function UserTable() {
     } catch (error: any) {
       console.error("Error updating role:", error);
       if (error.message && error.message.includes(NOT_IMPLEMENTED_ERROR)) {
-         toast({ variant: "destructive", title: "Function Not Implemented", description: "Updating user roles requires Supabase backend implementation." });
+         toast({ variant: "destructive", title: "وظيفة غير منفذة", description: "تحديث أدوار المستخدمين يتطلب تطبيق الواجهة الخلفية لـ Supabase." });
       } else {
         toast({
           variant: "destructive",
-          title: "Error Updating Role",
-          description: "Could not update user role. Please try again.",
+          title: "خطأ في تحديث الدور",
+          description: "لم نتمكن من تحديث دور المستخدم. يرجى المحاولة مرة أخرى.",
         });
       }
     } finally {
@@ -103,7 +102,7 @@ export default function UserTable() {
     return (
       <div className="flex justify-center items-center py-10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading users...</p>
+        <p className="ml-2 text-muted-foreground">جاري تحميل المستخدمين...</p>
       </div>
     );
   }
@@ -111,42 +110,42 @@ export default function UserTable() {
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <div className="flex items-center space-x-3 mb-2">
+        <div className="flex items-center space-x-3 mb-2 rtl:space-x-reverse">
             <Users className="h-8 w-8 text-primary" />
-            <CardTitle className="text-3xl font-bold tracking-tight">User Management</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight">إدارة المستخدمين</CardTitle>
         </div>
         <CardDescription className="text-lg text-muted-foreground">
-          View and manage user roles within the application. (Backend logic needs Supabase update)
+          عرض وإدارة أدوار المستخدمين داخل التطبيق. (المنطق الخلفي يحتاج لتحديث Supabase)
         </CardDescription>
       </CardHeader>
       <CardContent>
         {users.length === 0 && !isLoading ? (
           <div className="text-center py-8 text-muted-foreground">
-            No users found or data fetching is not yet implemented for Supabase.
+            لم يتم العثور على مستخدمين أو أن جلب البيانات لم يتم تنفيذه بعد لـ Supabase.
           </div>
         ) : (
         <div className="overflow-x-auto mt-4 border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="font-semibold">Email</TableHead>
-                <TableHead className="font-semibold">Current Role</TableHead>
-                <TableHead className="font-semibold text-right">Change Role</TableHead>
+                <TableHead className="font-semibold">البريد الإلكتروني</TableHead>
+                <TableHead className="font-semibold">الدور الحالي</TableHead>
+                <TableHead className="font-semibold text-right">تغيير الدور</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.map(user => (
                 <TableRow key={user.id}>{/* Ensure no whitespace before TableCell */}
                   <TableCell className="font-medium">{user.email || "N/A"}</TableCell>
-                  <TableCell className="capitalize">{user.role || "Not set"}</TableCell>
+                  <TableCell className="capitalize">{user.role || "غير محدد"}</TableCell>
                   <TableCell className="text-right">
                     <Select
-                      value={user.role}
+                      value={user.role || undefined}
                       onValueChange={(value) => changeRole(user.id, value as UserProfile['role'])} // Use 'id'
                       disabled={isUpdatingRole === user.id} // Use 'id'
                     >
                       <SelectTrigger className="w-[180px] h-9">
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder="اختر دورًا" />
                       </SelectTrigger>
                       <SelectContent>
                         {ROLES.map(roleValue => (
@@ -154,7 +153,7 @@ export default function UserTable() {
                             {isUpdatingRole === user.id && user.role === roleValue ? ( // Use 'id'
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ): null}
-                            {roleValue ? roleValue.charAt(0).toUpperCase() + roleValue.slice(1) : "Select Role"}
+                            {roleValue ? roleValue.charAt(0).toUpperCase() + roleValue.slice(1) : "اختر دورًا"}
                           </SelectItem>
                         ))}
                       </SelectContent>

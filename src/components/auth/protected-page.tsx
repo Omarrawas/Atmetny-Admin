@@ -29,7 +29,7 @@ export default function ProtectedPage({ children }: { children: React.ReactNode 
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        <p className="ml-4 text-lg text-foreground">Verifying access...</p>
+        <p className="ml-4 text-lg text-foreground">جار التحقق من صلاحية الوصول...</p>
       </div>
     );
   }

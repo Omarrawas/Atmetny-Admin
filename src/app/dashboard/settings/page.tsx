@@ -1,4 +1,3 @@
-
 // src/app/dashboard/settings/page.tsx
 "use client";
 
@@ -17,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'; // Import Select components
+} from '@/components/ui/select'; 
 import { useToast } from '@/hooks/use-toast';
 import { getAppSettings, updateAppSettings } from '@/lib/firestore';
 import type { AppSettings, SocialMediaLink, SocialPlatform } from '@/types';
@@ -25,22 +24,22 @@ import { Loader2, Save, Settings, PlusCircle, Trash2 } from 'lucide-react';
 
 const platformValues = [
   "Facebook", "whatsapp", "Instagram", "Telegram", "Twitter", 
-  "LinkedIn", "YouTube", "TikTok", "Discord"
-] as const; // Define platform names for Zod enum
+  "LinkedIn", "YouTube", "TikTok", "Discord", "" 
+] as const; 
 
 const socialMediaLinkSchema = z.object({
-  platform: z.enum(platformValues, { required_error: "Platform selection is required." }),
-  url: z.string().url({ message: "Please enter a valid URL." }),
+  platform: z.enum(platformValues, { required_error: "اختيار المنصة مطلوب." }),
+  url: z.string().url({ message: "الرجاء إدخال رابط URL صحيح." }),
 });
 
 const appSettingsSchema = z.object({
   appName: z.string().optional().nullable(),
-  appLogoUrl: z.string().url({ message: "Please enter a valid URL for the logo." }).optional().or(z.literal('')).nullable(),
+  appLogoUrl: z.string().url({ message: "الرجاء إدخال رابط URL صالح للشعار." }).optional().or(z.literal('')).nullable(),
   supportPhoneNumber: z.string().optional().nullable(),
-  supportEmail: z.string().email({ message: "Please enter a valid email address." }).optional().or(z.literal('')).nullable(),
+  supportEmail: z.string().email({ message: "الرجاء إدخال عنوان بريد إلكتروني صالح." }).optional().or(z.literal('')).nullable(),
   socialMediaLinks: z.array(socialMediaLinkSchema).optional(),
-  termsOfServiceUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')).nullable(),
-  privacyPolicyUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')).nullable(),
+  termsOfServiceUrl: z.string().url({ message: "الرجاء إدخال رابط URL صالح." }).optional().or(z.literal('')).nullable(),
+  privacyPolicyUrl: z.string().url({ message: "الرجاء إدخال رابط URL صالح." }).optional().or(z.literal('')).nullable(),
 });
 
 type AppSettingsFormValues = z.infer<typeof appSettingsSchema>;
@@ -101,8 +100,8 @@ export default function ApplicationSettingsPage() {
         console.error("Error fetching app settings:", error);
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Could not load application settings.",
+          title: "خطأ",
+          description: "تعذر تحميل إعدادات التطبيق.",
         });
       } finally {
         setIsLoading(false);
@@ -125,15 +124,15 @@ export default function ApplicationSettingsPage() {
       };
       await updateAppSettings(settingsToSave);
       toast({
-        title: "Success!",
-        description: "Application settings saved successfully.",
+        title: "نجاح!",
+        description: "تم حفظ إعدادات التطبيق بنجاح.",
       });
     } catch (error) {
       console.error("Error saving app settings:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to save application settings.",
+        title: "خطأ",
+        description: "فشل حفظ إعدادات التطبيق.",
       });
     } finally {
       setIsSaving(false);
@@ -171,7 +170,7 @@ export default function ApplicationSettingsPage() {
                   <FormItem>
                     <FormLabel>اسم التطبيق</FormLabel>
                     <FormControl>
-                      <Input placeholder="مثال: Atmetny - منصتك التعليمية" {...field} value={field.value ?? ''} />
+                      <Input placeholder="مثال: اتمتني - منصتك التعليمية" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormDescription>الاسم الذي يظهر للطلاب.</FormDescription>
                     <FormMessage />
@@ -317,7 +316,7 @@ export default function ApplicationSettingsPage() {
 
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin rtl:ml-2 rtl:mr-0" /> : <Save className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />}
                   حفظ الإعدادات
                 </Button>
               </div>

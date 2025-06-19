@@ -21,7 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const assignTeacherSchema = z.object({
   email: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح." }),
   name: z.string().optional(), 
-  subjects_taught_ids: z.array(z.string()).optional().default([]), // Changed to array
+  subjects_taught_ids: z.array(z.string()).optional().default([]), 
   youtubeChannelUrl: z.string().url({ message: "الرجاء إدخال رابط URL صحيح لقناة يوتيوب." }).optional().or(z.literal('')),
 });
 
@@ -78,7 +78,7 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
 
       const updatePayload: Partial<UserProfile> = {
         role: 'teacher',
-        subjects_taught_ids: data.subjects_taught_ids && data.subjects_taught_ids.length > 0 ? data.subjects_taught_ids : null, // Pass array or null
+        subjects_taught_ids: data.subjects_taught_ids && data.subjects_taught_ids.length > 0 ? data.subjects_taught_ids : null, 
         youtube_channel_url: data.youtubeChannelUrl || null,
       };
 
@@ -170,14 +170,14 @@ export default function AssignTeacherRoleForm({ onTeacherAssigned }: AssignTeach
             <FormField
               control={form.control}
               name="subjects_taught_ids"
-              render={() => ( // Changed to render without field to manage array manually
+              render={() => ( 
                 <FormItem>
                   <FormLabel>المواد التي سيدرسها</FormLabel>
                   <FormDescription>
                     اختر المواد التي سيتم ربطها بالمدرس.
                   </FormDescription>
                   {isFetchingSubjects ? (
-                     <div className="flex items-center justify-center p-2"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> <span className="text-sm text-muted-foreground ml-2">جاري تحميل المواد...</span></div>
+                     <div className="flex items-center justify-center p-2"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> <span className="text-sm text-muted-foreground ml-2 rtl:mr-2">جاري تحميل المواد...</span></div>
                   ) : allSubjects.length === 0 ? (
                     <p className="text-sm text-muted-foreground p-2">لا توجد مواد مضافة بعد. يرجى إضافة مواد أولاً.</p>
                   ) : (

@@ -41,7 +41,7 @@ export default function LoginPage() {
   useEffect(() => {
     const authError = searchParams.get('error');
     if (authError === 'unauthorized') {
-      setError("أنت لست أدمن أو ليس لديك صلاحية الوصول.");
+      setError("أنت لست مسؤولاً أو ليس لديك صلاحية الوصول.");
     }
   }, [searchParams]);
   
@@ -110,9 +110,9 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
             <School className="h-8 w-8" />
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Atmetny Admin Lite</CardTitle>
+          <CardTitle className="text-3xl font-bold tracking-tight text-foreground">لوحة تحكم اتمتني</CardTitle>
           <CardDescription className="text-muted-foreground">
-            سجل الدخول لإدارة المحتوى التعليمي الخاص بك (Supabase Auth).
+            سجل الدخول لإدارة المحتوى التعليمي الخاص بك.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -160,7 +160,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Atmetny. جميع الحقوق محفوظة.
+        © {new Date().getFullYear()} اتمتني. جميع الحقوق محفوظة.
       </p>
     </div>
   );

@@ -1,4 +1,3 @@
-
 // src/app/dashboard/import/page.tsx
 "use client";
 import React, { useState, useCallback } from 'react';
@@ -17,12 +16,11 @@ import {
     addUsersBatch,
     addSubjectsBatch,
     getSubjects,
-    getUsers // For user import validation/lookup
-} from '@/lib/firestore'; // These functions will now throw errors until implemented for Supabase
+    getUsers 
+} from '@/lib/firestore'; 
 import type { Question, Option, Subject, QuestionType, Exam, NewsArticle, AccessCode, UserProfile, AccessCodeType } from '@/types';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Label } from '@/components/ui/label';
-// Removed: import { Timestamp } from 'firebase/firestore';
 
 type DataType = 'questions' | 'exams' | 'news' | 'accessCodes' | 'users' | 'subjects';
 
@@ -65,9 +63,9 @@ export default function ImportPage() {
         setAvailableUsers(usersData);
       } catch (error: any) {
         if (error.message && error.message.includes("This function is not implemented for Supabase")) {
-            console.warn("Import page: getSubjects/getUsers not implemented for Supabase yet. Form lookups might be affected.");
+            console.warn("صفحة الاستيراد: وظائف getSubjects/getUsers لم يتم تنفيذها لـ Supabase بعد. قد تتأثر عمليات البحث في النموذج.");
         } else {
-            console.error("Error fetching subjects/users for import validation:", error);
+            console.error("خطأ في جلب المواد/المستخدمين للتحقق من صحة الاستيراد:", error);
         }
       }
     };
@@ -94,7 +92,7 @@ export default function ImportPage() {
         updateImportState(dataType, { file: selectedFile, fileName: selectedFile.name });
       } else {
         updateImportState(dataType, { 
-          error: "Invalid file type. Please upload a CSV, XLSX, or JSON file.", 
+          error: "نوع ملف غير صالح. الرجاء تحميل ملف CSV أو XLSX أو JSON.", 
           file: null, 
           fileName: null 
         });
@@ -105,12 +103,12 @@ export default function ImportPage() {
 
   const processParsedData = async (dataType: DataType, parsedData: any[]): Promise<any[] | string> => {
     if (!parsedData || parsedData.length === 0) {
-      return "The selected file is empty or could not be parsed correctly.";
+      return "الملف المحدد فارغ أو لا يمكن تحليله بشكل صحيح.";
     }
 
     const itemsToImport: any[] = [];
     const subjectsMapByName = new Map(availableSubjects.map(s => [s.name.toLowerCase(), s.id]));
-    const usersMapByEmail = new Map(availableUsers.map(u => [u.email?.toLowerCase(), u.id])); // use 'id' for Supabase
+    const usersMapByEmail = new Map(availableUsers.map(u => [u.email?.toLowerCase(), u.id])); 
 
     for (const row of parsedData) {
       const normalizedRow: { [key: string]: any } = {};
@@ -130,15 +128,12 @@ export default function ImportPage() {
       try {
         switch (dataType) {
           case 'questions':
-            // ... (existing question processing logic, assuming types are compatible or handled in batch function)
-            // For now, pass through to batch function
-            itemsToImport.push(normalizedRow); // Simplified for now, actual mapping in batch function
+            itemsToImport.push(normalizedRow); 
             break;
           case 'exams':
-            // ... (existing exam processing logic)
-             if (!normalizedRow.title || !normalizedRow.subjectname) { console.warn("Skipping exam: missing title or subjectName", normalizedRow); continue; }
+             if (!normalizedRow.title || !normalizedRow.subjectname) { console.warn("تجاوز الامتحان: العنوان أو اسم المادة مفقود", normalizedRow); continue; }
             const examSubjectId = subjectsMapByName.get(String(normalizedRow.subjectname).toLowerCase());
-            if (!examSubjectId && normalizedRow.subjectname) { console.warn("Skipping exam: subject not found", normalizedRow.subjectname); continue; }
+            if (!examSubjectId && normalizedRow.subjectname) { console.warn("تجاوز الامتحان: المادة غير موجودة", normalizedRow.subjectname); continue; }
             itemsToImport.push({
               title: String(normalizedRow.title),
               description: String(normalizedRow.description || ''),
@@ -153,8 +148,7 @@ export default function ImportPage() {
             });
             break;
           case 'news':
-            // ... (existing news processing logic)
-            if (!normalizedRow.title || !normalizedRow.content) { console.warn("Skipping news: missing title or content", normalizedRow); continue; }
+            if (!normalizedRow.title || !normalizedRow.content) { console.warn("تجاوز الخبر: العنوان أو المحتوى مفقود", normalizedRow); continue; }
             itemsToImport.push({
               title: String(normalizedRow.title),
               content: String(normalizedRow.content),
@@ -163,13 +157,13 @@ export default function ImportPage() {
             break;
           case 'accessCodes':
             if (!normalizedRow.name || !normalizedRow.encodedvalue || !normalizedRow.type || !normalizedRow.validfrom || !normalizedRow.validuntil) {
-              console.warn("Skipping access code: missing required fields", normalizedRow); continue;
+              console.warn("تجاوز رمز الدخول: حقول مطلوبة مفقودة", normalizedRow); continue;
             }
             const codeType = String(normalizedRow.type).toLowerCase() as AccessCodeType;
             const validFromDate = new Date(String(normalizedRow.validfrom));
             const validUntilDate = new Date(String(normalizedRow.validuntil));
             if (isNaN(validFromDate.getTime()) || isNaN(validUntilDate.getTime())) { 
-                console.warn("Skipping access code: invalid date format", normalizedRow); continue; 
+                console.warn("تجاوز رمز الدخول: تنسيق تاريخ غير صالح", normalizedRow); continue; 
             }
             
             let acSubjectId: string | null = null;
@@ -183,18 +177,18 @@ export default function ImportPage() {
               type: codeType,
               subjectId: acSubjectId,
               subjectName: normalizedRow.subjectname ? String(normalizedRow.subjectname) : null,
-              validFrom: validFromDate.toISOString(), // Convert to ISO string for Supabase
-              validUntil: validUntilDate.toISOString(), // Convert to ISO string for Supabase
+              validFrom: validFromDate.toISOString(), 
+              validUntil: validUntilDate.toISOString(), 
               isActive: normalizedRow.isactive !== undefined ? String(normalizedRow.isactive).toLowerCase() === 'true' : true,
             });
             break;
-          case 'users': // User Profiles
+          case 'users': 
             const userEmail = String(normalizedRow.email || '').toLowerCase();
-            if (!userEmail) { console.warn("Skipping user: missing email", normalizedRow); continue; }
+            if (!userEmail) { console.warn("تجاوز المستخدم: البريد الإلكتروني مفقود", normalizedRow); continue; }
             let userId = normalizedRow.id || normalizedRow.uid ? String(normalizedRow.id || normalizedRow.uid) : usersMapByEmail.get(userEmail);
 
             itemsToImport.push({
-              id: userId, // Use 'id' for Supabase
+              id: userId, 
               email: userEmail,
               displayName: String(normalizedRow.displayname || ''),
               role: String(normalizedRow.role || 'user').toLowerCase() as UserProfile['role'],
@@ -203,7 +197,7 @@ export default function ImportPage() {
             });
             break;
           case 'subjects':
-            if (!normalizedRow.name || !normalizedRow.branch) { console.warn("Skipping subject: missing name or branch", normalizedRow); continue; }
+            if (!normalizedRow.name || !normalizedRow.branch) { console.warn("تجاوز المادة: الاسم أو الفرع مفقود", normalizedRow); continue; }
             itemsToImport.push({
               name: String(normalizedRow.name),
               description: String(normalizedRow.description || ''),
@@ -215,16 +209,16 @@ export default function ImportPage() {
             });
             break;
           default:
-            console.warn(`Skipping row: Unknown data type '${dataType}'`);
+            console.warn(`تجاوز الصف: نوع بيانات غير معروف '${dataType}'`);
         }
       } catch (parseError) {
-        console.error(`Error parsing row for ${dataType}:`, parseError, "Row data:", normalizedRow);
-        return `Error parsing row data for ${dataType}. Please check file content and console for details.`;
+        console.error(`خطأ في تحليل الصف لـ ${dataType}:`, parseError, "بيانات الصف:", normalizedRow);
+        return `خطأ في تحليل بيانات الصف لـ ${dataType}. يرجى التحقق من محتوى الملف ووحدة التحكم للحصول على التفاصيل.`;
       }
     }
     
     if (itemsToImport.length === 0) {
-      return "No valid items found in the file to import. Please check the file content, format, and console for details on skipped rows.";
+      return "لم يتم العثور على عناصر صالحة للاستيراد في الملف. يرجى التحقق من محتوى الملف وتنسيقه ووحدة التحكم للحصول على تفاصيل حول الصفوف التي تم تجاوزها.";
     }
     return itemsToImport;
   };
@@ -233,7 +227,7 @@ export default function ImportPage() {
   const handleImport = useCallback(async (dataType: DataType) => {
     const state = importStates[dataType];
     if (!state.file) {
-      updateImportState(dataType, { error: "Please select a file to import." });
+      updateImportState(dataType, { error: "الرجاء اختيار ملف للاستيراد." });
       return;
     }
 
@@ -248,10 +242,10 @@ export default function ImportPage() {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            if (results.errors.length > 0) reject(new Error(`Error parsing CSV: ${results.errors[0].message}`));
+            if (results.errors.length > 0) reject(new Error(`خطأ في تحليل CSV: ${results.errors[0].message}`));
             else resolve(results.data as any[]);
           },
-          error: (err: any) => reject(new Error(`Failed to parse CSV file: ${err.message}`)),
+          error: (err: any) => reject(new Error(`فشل تحليل ملف CSV: ${err.message}`)),
         });
       });
     } else if (fileExtension === 'xlsx' || state.file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
@@ -260,14 +254,14 @@ export default function ImportPage() {
         reader.onload = (e) => {
           try {
             const data = e.target?.result;
-            if (!data) { reject(new Error("Failed to read XLSX file.")); return; }
+            if (!data) { reject(new Error("فشل قراءة ملف XLSX.")); return; }
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
             resolve(XLSX.utils.sheet_to_json(worksheet));
-          } catch (xlsxError) { reject(new Error(`Failed to parse XLSX file. Error: ${(xlsxError as Error).message}`)); }
+          } catch (xlsxError) { reject(new Error(`فشل تحليل ملف XLSX. الخطأ: ${(xlsxError as Error).message}`)); }
         };
-        reader.onerror = () => reject(new Error("Error reading XLSX file."));
+        reader.onerror = () => reject(new Error("خطأ في قراءة ملف XLSX."));
         reader.readAsArrayBuffer(state.file!);
       });
     } else if (fileExtension === 'json' || state.file.type === 'application/json') {
@@ -276,17 +270,17 @@ export default function ImportPage() {
         reader.onload = (e) => {
           try {
             const text = e.target?.result as string;
-            if (!text) { reject(new Error("Failed to read JSON file.")); return; }
+            if (!text) { reject(new Error("فشل قراءة ملف JSON.")); return; }
             const jsonData = JSON.parse(text);
-            if (!Array.isArray(jsonData)) { reject(new Error("Invalid JSON format. Expected an array.")); return; }
+            if (!Array.isArray(jsonData)) { reject(new Error("تنسيق JSON غير صالح. كان المتوقع مصفوفة.")); return; }
             resolve(jsonData);
-          } catch (jsonError) { reject(new Error(`Failed to parse JSON file. Error: ${(jsonError as Error).message}`)); }
+          } catch (jsonError) { reject(new Error(`فشل تحليل ملف JSON. الخطأ: ${(jsonError as Error).message}`)); }
         };
-        reader.onerror = () => reject(new Error("Error reading JSON file."));
+        reader.onerror = () => reject(new Error("خطأ في قراءة ملف JSON."));
         reader.readAsText(state.file!);
       });
     } else {
-      updateImportState(dataType, { error: "Unsupported file type.", isLoading: false });
+      updateImportState(dataType, { error: "نوع ملف غير مدعوم.", isLoading: false });
       return;
     }
 
@@ -308,34 +302,34 @@ export default function ImportPage() {
         case 'accessCodes': await addAccessCodesBatch(itemsToImport); break;
         case 'users': await addUsersBatch(itemsToImport); break;
         case 'subjects': await addSubjectsBatch(itemsToImport); break;
-        default: throw new Error(`Unknown data type for import: ${dataType}`);
+        default: throw new Error(`نوع بيانات غير معروف للاستيراد: ${dataType}`);
       }
       
       updateImportState(dataType, { 
-        successMessage: `${itemsToImport.length} ${dataType} imported successfully from ${state.fileName}!`,
+        successMessage: `تم استيراد ${itemsToImport.length} ${dataType} بنجاح من ${state.fileName}!`,
         file: null, 
         fileName: null 
       });
-      toast({ title: "Success", description: `${itemsToImport.length} ${dataType} imported.` });
+      toast({ title: "نجاح", description: `تم استيراد ${itemsToImport.length} ${dataType}.` });
       const fileInput = document.getElementById(`file-import-input-${dataType}`) as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     } catch (err: any) {
-      console.error(`Error processing or importing ${dataType}:`, err);
+      console.error(`خطأ في معالجة أو استيراد ${dataType}:`, err);
       if (err.message && err.message.includes("This function is not implemented for Supabase")) {
          updateImportState(dataType, { 
-           error: `Import for ${dataType} failed: The backend function needs to be implemented for Supabase.`,
+           error: `فشل استيراد ${dataType}: وظيفة الواجهة الخلفية تحتاج إلى تنفيذ لـ Supabase.`,
          });
-         toast({ variant: "destructive", title: `Import Not Implemented for ${dataType}`, description: `Could not import ${dataType}. Backend logic pending.` });
+         toast({ variant: "destructive", title: `استيراد غير منفذ لـ ${dataType}`, description: `لم يتم استيراد ${dataType}. منطق الواجهة الخلفية معلق.` });
       } else {
         updateImportState(dataType, { 
-          error: `An error occurred during the import process for ${dataType}: ${(err as Error).message}. Check console for details.`,
+          error: `حدث خطأ أثناء عملية الاستيراد لـ ${dataType}: ${(err as Error).message}. تحقق من وحدة التحكم للحصول على التفاصيل.`,
         });
-        toast({ variant: "destructive", title: `Import Failed for ${dataType}`, description: `Could not import ${dataType}.` });
+        toast({ variant: "destructive", title: `فشل استيراد ${dataType}`, description: `لم يتم استيراد ${dataType}.` });
       }
     } finally {
       updateImportState(dataType, { isLoading: false });
     }
-  }, [importStates, toast, availableSubjects, availableUsers]); // Removed processParsedData from deps as it's defined inside
+  }, [importStates, toast, availableSubjects, availableUsers]); 
 
   const importSections: {
     type: DataType;
@@ -345,80 +339,80 @@ export default function ImportPage() {
   }[] = [
     {
       type: 'questions',
-      title: 'Import Questions',
+      title: 'استيراد الأسئلة',
       icon: ListChecks,
       instructions: (
         <>
-          Required: <code>questionType</code> (mcq, true_false, fill_in_the_blanks, short_answer), <code>questionText</code>, <code>difficulty</code>, <code>subject</code> (name) or <code>subjectId</code>.<br/>
-          MCQ/TrueFalse: <code>option1..6</code>, <code>correctOptionIndex</code> (1-based) or <code>correctOptionText</code>.<br/>
-          FillInTheBlanks: <code>correctAnswers</code> (if multiple, semicolon ';' separated).<br/>
-          ShortAnswer: <code>modelAnswer</code> (optional).<br/>
-          Optional: <code>lessonId</code>, <code>tagIds</code> (comma-separated), <code>isSane</code>, <code>sanityExplanation</code>.<br/>
-          JSON: Array of question objects.
+          مطلوب: <code>questionType</code> (mcq, true_false, fill_in_the_blanks, short_answer), <code>questionText</code>, <code>difficulty</code>, <code>subject</code> (name) أو <code>subjectId</code>.<br/>
+          MCQ/TrueFalse: <code>option1..6</code>, <code>correctOptionIndex</code> (1-based) أو <code>correctOptionText</code>.<br/>
+          FillInTheBlanks: <code>correctAnswers</code> (إذا كانت متعددة، مفصولة بفاصلة منقوطة ';').<br/>
+          ShortAnswer: <code>modelAnswer</code> (اختياري).<br/>
+          اختياري: <code>lessonId</code>, <code>tagIds</code> (مفصولة بفاصلة), <code>isSane</code>, <code>sanityExplanation</code>.<br/>
+          JSON: مصفوفة من كائنات الأسئلة.
         </>
       ),
     },
     {
       type: 'exams',
-      title: 'Import Exams',
+      title: 'استيراد الامتحانات',
       icon: ListChecks,
       instructions: (
         <>
-          Required: <code>title</code>, <code>subjectName</code> (must match an existing subject name).<br/>
-          Optional: <code>description</code>, <code>questionIds</code> (comma-separated string of question IDs), <code>published</code> (true/false), <code>image</code> (URL), <code>imageHint</code>, <code>teacherName</code>, <code>teacherId</code>, <code>durationInMinutes</code> (number).<br/>
-          JSON: Array of exam objects.
+          مطلوب: <code>title</code>, <code>subjectName</code> (يجب أن يتطابق مع اسم مادة موجودة).<br/>
+          اختياري: <code>description</code>, <code>questionIds</code> (سلسلة من معرفات الأسئلة مفصولة بفاصلة), <code>published</code> (true/false), <code>image</code> (URL), <code>imageHint</code>, <code>teacherName</code>, <code>teacherId</code>, <code>durationInMinutes</code> (رقم).<br/>
+          JSON: مصفوفة من كائنات الامتحانات.
         </>
       ),
     },
     {
       type: 'news',
-      title: 'Import News Articles',
+      title: 'استيراد الأخبار',
       icon: NewspaperIcon,
       instructions: (
         <>
-          Required: <code>title</code>, <code>content</code>.<br/>
-          Optional: <code>imageUrl</code> (URL).<br/>
-          JSON: Array of news article objects.
+          مطلوب: <code>title</code>, <code>content</code>.<br/>
+          اختياري: <code>imageUrl</code> (URL).<br/>
+          JSON: مصفوفة من كائنات الأخبار.
         </>
       ),
     },
     {
       type: 'accessCodes',
-      title: 'Import Access Codes',
+      title: 'استيراد رموز الدخول',
       icon: QrCodeIcon,
       instructions: (
         <>
-          Required: <code>name</code>, <code>encodedValue</code> (unique string for QR), <code>type</code> (e.g., subject_monthly), <code>validFrom</code> (YYYY-MM-DD), <code>validUntil</code> (YYYY-MM-DD).<br/>
-          Optional: <code>subjectName</code> (if type requires it, must match existing subject), <code>isActive</code> (true/false, defaults to true).<br/>
-          JSON: Array of access code objects (ensure dates are ISO strings or parseable).
+          مطلوب: <code>name</code>, <code>encodedValue</code> (سلسلة فريدة لـ QR), <code>type</code> (مثال: subject_monthly), <code>validFrom</code> (YYYY-MM-DD), <code>validUntil</code> (YYYY-MM-DD).<br/>
+          اختياري: <code>subjectName</code> (إذا كان النوع يتطلبه، يجب أن يتطابق مع مادة موجودة), <code>isActive</code> (true/false, الافتراضي true).<br/>
+          JSON: مصفوفة من كائنات رموز الدخول (تأكد من أن التواريخ هي سلاسل ISO أو قابلة للتحليل).
         </>
       ),
     },
     {
       type: 'users',
-      title: 'Import User Profiles',
+      title: 'استيراد ملفات تعريف المستخدمين',
       icon: UsersIcon,
       instructions: (
         <>
-          Required: <code>email</code>.<br/>
-          Optional: <code>id</code> (Supabase user ID, if updating existing profile), <code>displayName</code>, <code>role</code> (student, teacher, admin, user), <code>subjectsTaughtIds</code> (comma-separated subject IDs), <code>youtubeChannelUrl</code>.<br/>
-          **Note:** This does NOT create Supabase Auth users. Users must exist in Supabase Auth. Use <code>id</code> or <code>email</code> to target profiles.
+          مطلوب: <code>email</code>.<br/>
+          اختياري: <code>id</code> (معرف مستخدم Supabase، إذا كان لتحديث ملف تعريف موجود), <code>displayName</code>, <code>role</code> (student, teacher, admin, user), <code>subjectsTaughtIds</code> (معرفات مواد مفصولة بفاصلة), <code>youtubeChannelUrl</code>.<br/>
+          **ملاحظة:** هذا لا ينشئ مستخدمي Supabase Auth. يجب أن يكون المستخدمون موجودين في Supabase Auth. استخدم <code>id</code> أو <code>email</code> لاستهداف الملفات الشخصية.
           <br/>
-          JSON: Array of user profile objects.
+          JSON: مصفوفة من كائنات ملفات تعريف المستخدمين.
         </>
       ),
     },
     {
       type: 'subjects',
-      title: 'Import Subjects',
+      title: 'استيراد المواد',
       icon: BookOpenIcon,
       instructions: (
         <>
-          Required: <code>name</code>, <code>branch</code> (scientific, literary, general).<br/>
-          Optional: <code>description</code>, <code>image</code> (URL), <code>iconName</code> (Lucide icon name), <code>imageHint</code>, <code>order</code> (number).<br/>
-          CSV/XLSX imports top-level details. Full nested import (sections, lessons) via JSON is an advanced feature requiring specific structure.
+          مطلوب: <code>name</code>, <code>branch</code> (scientific, literary, general).<br/>
+          اختياري: <code>description</code>, <code>image</code> (URL), <code>iconName</code> (اسم أيقونة Lucide), <code>imageHint</code>, <code>order</code> (رقم).<br/>
+          استيراد CSV/XLSX للتفاصيل ذات المستوى الأعلى. الاستيراد المتداخل الكامل (الأقسام، الدروس) عبر JSON هو ميزة متقدمة تتطلب هيكلًا محددًا.
           <br/>
-          JSON: Array of subject objects (top-level fields).
+          JSON: مصفوفة من كائنات المواد (حقول المستوى الأعلى).
         </>
       ),
     },
@@ -431,10 +425,10 @@ export default function ImportPage() {
         <CardHeader>
           <div className="flex items-center space-x-3 mb-2 rtl:space-x-reverse">
             <Upload className="h-8 w-8 text-primary" />
-            <CardTitle className="text-3xl font-bold tracking-tight">Import Data</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight">استيراد البيانات</CardTitle>
           </div>
           <CardDescription className="text-lg text-muted-foreground">
-            Upload CSV, Excel (.xlsx), or JSON files to batch import. (Note: Data import will fail until Firestore functions are migrated to Supabase).
+            قم بتحميل ملفات CSV أو Excel (.xlsx) أو JSON لاستيراد البيانات دفعة واحدة. (ملاحظة: سيفشل استيراد البيانات حتى يتم ترحيل وظائف Firestore إلى Supabase).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -450,7 +444,7 @@ export default function ImportPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1">
-                    <Label htmlFor={`file-import-input-${type}`} className="text-base font-medium">Select File</Label>
+                    <Label htmlFor={`file-import-input-${type}`} className="text-base font-medium">اختر ملفًا</Label>
                     <Input
                       id={`file-import-input-${type}`}
                       type="file"
@@ -461,7 +455,7 @@ export default function ImportPage() {
                     />
                     {state.fileName && !state.error && (
                       <p className="text-sm text-muted-foreground flex items-center mt-1">
-                        <FileText className="h-4 w-4 mr-2 text-primary rtl:ml-2 rtl:mr-0" /> Selected: {state.fileName}
+                        <FileText className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0 text-primary" /> المحدد: {state.fileName}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground pt-1">{instructions}</p>
@@ -470,21 +464,21 @@ export default function ImportPage() {
                   {state.error && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Import Error for {title}</AlertTitle>
+                      <AlertTitle>خطأ في الاستيراد لـ {title}</AlertTitle>
                       <AlertDescription>{state.error}</AlertDescription>
                     </Alert>
                   )}
                   {state.successMessage && (
                     <Alert variant="default" className="bg-green-50 border-green-300 text-green-700 dark:bg-green-900 dark:border-green-700 dark:text-green-300">
                       <CheckCircle className="h-4 w-4 !text-green-700 dark:!text-green-300" />
-                      <AlertTitle>Import Successful for {title}</AlertTitle>
+                      <AlertTitle>نجح الاستيراد لـ {title}</AlertTitle>
                       <AlertDescription>{state.successMessage}</AlertDescription>
                     </Alert>
                   )}
 
                   <Button onClick={() => handleImport(type)} disabled={state.isLoading || !state.file} size="lg" className="w-full sm:w-auto">
-                    {state.isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin rtl:ml-2 rtl:mr-0" /> : <Upload className="mr-2 h-5 w-5 rtl:ml-2 rtl:mr-0" />}
-                    Import {title.replace('Import ', '')}
+                    {state.isLoading ? <Loader2 className="ml-2 h-5 w-5 animate-spin rtl:mr-2 rtl:ml-0" /> : <Upload className="ml-2 h-5 w-5 rtl:mr-2 rtl:ml-0" />}
+                    استيراد {title.replace('استيراد ', '')}
                   </Button>
                 </CardContent>
               </Card>

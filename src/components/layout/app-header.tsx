@@ -56,9 +56,9 @@ export default function AppHeader() {
   }, []);
 
   const fetchNotifications = useCallback(async (markAsRead = false) => {
-    if (isLoadingNotificationsRef.current) return; // Guard against re-entrant calls
+    if (isLoadingNotificationsRef.current) return; 
     isLoadingNotificationsRef.current = true;
-    setIsLoadingNotifications(true); // Update state for UI
+    setIsLoadingNotifications(true); 
     try {
       const fetchedNots = await getAdminNotifications({ limit: 15, unreadOnly: !markAsRead });
       setNotifications(fetchedNots);
@@ -71,7 +71,7 @@ export default function AppHeader() {
     } catch (error) {
         console.error("Error fetching notifications:", error);
     } finally {
-      setIsLoadingNotifications(false); // Update state for UI
+      setIsLoadingNotifications(false); 
       isLoadingNotificationsRef.current = false;
     }
   }, []); 
@@ -115,7 +115,7 @@ export default function AppHeader() {
   };
 
   const getInitials = (nameOrEmail?: string | null) => {
-    if (!nameOrEmail) return 'AD';
+    if (!nameOrEmail) return 'أد'; // Admin initials in Arabic
     const parts = nameOrEmail.split(' ');
     if (parts.length > 1 && parts[0] && parts[1]) {
         return (parts[0][0] + parts[parts.length -1][0]).toUpperCase();
@@ -124,7 +124,7 @@ export default function AppHeader() {
   };
   
   const appLogoUrl = appSettings?.appLogoUrl;
-  const appName = appSettings?.appName || "Atmetny Admin Lite";
+  const appName = appSettings?.appName || "لوحة تحكم اتمتني";
 
   const getNotificationIcon = (type: AdminNotificationType) => {
     switch (type) {
@@ -150,7 +150,7 @@ export default function AppHeader() {
         {isMobile && (
            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden">
             <Menu className="h-6 w-6" />
-            <span className="sr-only">Toggle Sidebar</span>
+            <span className="sr-only">تبديل الشريط الجانبي</span>
           </Button>
         )}
         <div className="relative flex h-7 w-7 items-center justify-center text-primary">
@@ -165,10 +165,10 @@ export default function AppHeader() {
               className="object-contain" 
             />
           ) : (
-            <School className="h-full w-full" />
+            <School className="h-7 w-7 text-primary" />
           )}
         </div>
-        <h1 className="text-xl font-semibold text-foreground">Atmetny Admin Lite</h1> 
+        <h1 className="text-xl font-semibold text-foreground">لوحة تحكم اتمتني</h1> 
       </div>
       
       <div className="flex items-center gap-2">
@@ -179,20 +179,20 @@ export default function AppHeader() {
               {unreadNotificationsCount > 0 && (
                 <Badge 
                   variant="destructive" 
-                  className="absolute -top-1 -left-1 h-4 w-4 min-w-[1rem] p-0 flex items-center justify-center text-xs rounded-full" // Changed -right-1 to -left-1
+                  className="absolute -top-1 -left-1 h-4 w-4 min-w-[1rem] p-0 flex items-center justify-center text-xs rounded-full"
                 >
                   {unreadNotificationsCount}
                 </Badge>
               )}
-              <span className="sr-only">View Notifications</span>
+              <span className="sr-only">عرض الإشعارات</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-80 md:w-96" align="start"> {/* Changed align="end" to align="start" for RTL */}
+          <DropdownMenuContent className="w-80 md:w-96" align="start">
             <DropdownMenuLabel>الإشعارات</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {isLoadingNotifications ? (
               <DropdownMenuItem disabled className="flex items-center justify-center p-4">
-                <Loader2 className="h-5 w-5 animate-spin me-2" /> {/* Changed mr-2 to me-2 */}
+                <Loader2 className="h-5 w-5 animate-spin me-2" />
                 جاري تحميل الإشعارات...
               </DropdownMenuItem>
             ) : notifications.length === 0 ? (
@@ -253,7 +253,7 @@ export default function AppHeader() {
             )}
              <DropdownMenuSeparator />
              <DropdownMenuItem onClick={() => fetchNotifications(false)} disabled={isLoadingNotifications} className="flex items-center justify-center cursor-pointer">
-                <Loader2 className={`me-2 h-4 w-4 ${isLoadingNotifications ? "animate-spin" : "hidden"}`} /> {/* Changed mr-2 to me-2 */}
+                <Loader2 className={`me-2 h-4 w-4 ${isLoadingNotifications ? "animate-spin" : "hidden"}`} />
                 تحديث الإشعارات
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -265,7 +265,7 @@ export default function AppHeader() {
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-9 w-9">
                    {userProfile?.avatar_url ? (
-                    <img src={userProfile.avatar_url} alt={userProfile.name || user.email || 'User Avatar'} className="h-full w-full object-cover" />
+                    <img src={userProfile.avatar_url} alt={userProfile.name || user.email || 'صورة المستخدم'} className="h-full w-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-primary text-primary-foreground">
                       {getInitials(userProfile?.name || user.email)}
@@ -274,21 +274,21 @@ export default function AppHeader() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="start" forceMount> {/* Changed align="end" to align="start" for RTL */}
+            <DropdownMenuContent className="w-56" align="start" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none text-foreground">
                     {userProfile?.name || user.email}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {userProfile?.role === 'admin' ? 'Administrator' : (userProfile?.role || 'User')}
+                    {userProfile?.role === 'admin' ? 'مسؤول' : (userProfile?.role || 'مستخدم')}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                <LogOut className="me-2 h-4 w-4" /> {/* Changed mr-2 to me-2 */}
-                <span>Log out</span>
+                <LogOut className="me-2 h-4 w-4" />
+                <span>تسجيل الخروج</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -297,4 +297,3 @@ export default function AppHeader() {
     </header>
   );
 }
-

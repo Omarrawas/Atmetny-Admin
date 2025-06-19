@@ -1,4 +1,3 @@
-
 // src/app/dashboard/export/page.tsx
 "use client";
 import React, { useState } from 'react';
@@ -14,12 +13,11 @@ import {
     getAccessCodes,
     getUsers,
     getSubjectsWithDetails,
-    convertTimestampsToDates // This function might need adjustment or might not be needed if Supabase returns ISO strings
-} from '@/lib/firestore'; // These functions will now throw errors until implemented for Supabase
+    convertTimestampsToDates 
+} from '@/lib/firestore'; 
 import type { Question, Option } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
-// Removed: import { Timestamp } from 'firebase/firestore'; 
 
 type ExportFormat = 'xlsx' | 'json';
 type DataType = 'questions' | 'exams' | 'news' | 'accessCodes' | 'users' | 'subjects';
@@ -58,24 +56,23 @@ export default function ExportPage() {
   
   const downloadJSON = (data: any[], filename: string) => {
     if (!Array.isArray(data) || data.length === 0) {
-      toast({ title: "No Data", description: `No data available to export for ${filename}.` });
+      toast({ title: "لا توجد بيانات", description: `لا توجد بيانات متاحة للتصدير لـ ${filename}.` });
       return;
     }
     try {
-      // Assuming convertTimestampsToDates ensures all date-like fields are ISO strings
       const processedData = convertTimestampsToDates(data); 
       const jsonString = JSON.stringify(processedData, null, 2);
       downloadFile(jsonString, `${filename}.json`, 'application/json');
-      toast({ title: "Success", description: `${filename} exported successfully as JSON.` });
+      toast({ title: "نجاح", description: `تم تصدير ${filename} بنجاح كملف JSON.` });
     } catch (error) {
       console.error(`Error exporting ${filename} to JSON:`, error);
-      toast({ variant: "destructive", title: "Export Error", description: `Failed to export ${filename} as JSON.` });
+      toast({ variant: "destructive", title: "خطأ في التصدير", description: `فشل تصدير ${filename} كملف JSON.` });
     }
   };
 
   const downloadXLSX = (data: any[], filename: string, dataType: DataType) => {
     if (!Array.isArray(data) || data.length === 0) {
-      toast({ title: "No Data", description: `No data available to export for ${filename}.` });
+      toast({ title: "لا توجد بيانات", description: `لا توجد بيانات متاحة للتصدير لـ ${filename}.` });
       return;
     }
     try {
@@ -93,7 +90,6 @@ export default function ExportPage() {
             isSane: q.isSane,
             sanityExplanation: q.sanityExplanation,
           };
-          // Assuming options is an array of {id: string, text: string}
           if (q.options && Array.isArray(q.options)) {
             q.options.forEach((opt, index) => {
               flatQuestion[`option${index + 1}`] = opt.text;
@@ -102,22 +98,17 @@ export default function ExportPage() {
             flatQuestion['correctOptionText'] = correctOption ? correctOption.text : 'N/A';
           }
           flatQuestion['correctOptionId'] = q.correctOptionId;
-          // Timestamps are now strings (ISO dates) from Supabase, no conversion needed here
           flatQuestion['createdAt'] = q.created_at;
           flatQuestion['updatedAt'] = q.updated_at;
           return flatQuestion;
         });
       } else {
-        // Generic processing for other data types
-        // Assuming convertTimestampsToDates handles date conversions if necessary
         processedDataForSheet = convertTimestampsToDates(data.map(item => {
           const flatItem: {[key: string]: any} = {};
           for (const key in item) {
             if (Array.isArray(item[key])) {
-              flatItem[key] = JSON.stringify(item[key]); // Stringify arrays for XLSX
+              flatItem[key] = JSON.stringify(item[key]); 
             } else if (typeof item[key] === 'object' && item[key] !== null && !(item[key] instanceof Date)) {
-              // Skip complex objects not suitable for simple XLSX representation or stringify them
-              // flatItem[key] = JSON.stringify(item[key]);
             }
              else {
               flatItem[key] = item[key];
@@ -131,10 +122,10 @@ export default function ExportPage() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
       XLSX.writeFile(workbook, `${filename}.xlsx`);
-      toast({ title: "Success", description: `${filename} exported successfully as XLSX.` });
+      toast({ title: "نجاح", description: `تم تصدير ${filename} بنجاح كملف XLSX.` });
     } catch (error) {
       console.error(`Error exporting ${filename} to XLSX:`, error);
-      toast({ variant: "destructive", title: "Export Error", description: `Failed to export ${filename} as XLSX.` });
+      toast({ variant: "destructive", title: "خطأ في التصدير", description: `فشل تصدير ${filename} كملف XLSX.` });
     }
   };
 
@@ -150,11 +141,10 @@ export default function ExportPage() {
       }
     } catch (error: any) {
       console.error(`Error fetching ${dataType} for export:`, error);
-      // Check if it's the "Not Implemented" error
       if (error.message && error.message.includes("This function is not implemented for Supabase")) {
-        toast({ variant: "destructive", title: "Function Not Implemented", description: `The '${dataType}' data export relies on functions that need to be migrated to Supabase.` });
+        toast({ variant: "destructive", title: "وظيفة غير منفذة", description: `تصدير بيانات '${dataType}' يعتمد على وظائف تحتاج إلى ترحيل إلى Supabase.` });
       } else {
-        toast({ variant: "destructive", title: "Error", description: `Failed to fetch ${dataType} for export.` });
+        toast({ variant: "destructive", title: "خطأ", description: `فشل جلب بيانات ${dataType} للتصدير.` });
       }
     } finally {
       setLoadingStates(prev => ({ ...prev, [dataType]: false }));
@@ -166,12 +156,12 @@ export default function ExportPage() {
   };
 
   const exportConfig: { type: DataType, label: string, fetchData: () => Promise<any[]>, filename: string, supportedFormats: ExportFormat[] }[] = [
-    { type: 'questions', label: 'Export Questions', fetchData: getQuestions, filename: 'questions_export', supportedFormats: ['xlsx', 'json'] },
-    { type: 'exams', label: 'Export Exams', fetchData: getExams, filename: 'exams_export', supportedFormats: ['xlsx', 'json'] },
-    { type: 'news', label: 'Export News', fetchData: getNewsArticles, filename: 'news_export', supportedFormats: ['xlsx', 'json'] },
-    { type: 'accessCodes', label: 'Export Access Codes', fetchData: getAccessCodes, filename: 'access_codes_export', supportedFormats: ['xlsx', 'json'] },
-    { type: 'users', label: 'Export Users', fetchData: getUsers, filename: 'users_export', supportedFormats: ['xlsx', 'json'] },
-    { type: 'subjects', label: 'Export Subjects (with details)', fetchData: getSubjectsWithDetails, filename: 'subjects_with_details_export', supportedFormats: ['json'] },
+    { type: 'questions', label: 'تصدير الأسئلة', fetchData: getQuestions, filename: 'تصدير_الأسئلة', supportedFormats: ['xlsx', 'json'] },
+    { type: 'exams', label: 'تصدير الامتحانات', fetchData: getExams, filename: 'تصدير_الامتحانات', supportedFormats: ['xlsx', 'json'] },
+    { type: 'news', label: 'تصدير الأخبار', fetchData: getNewsArticles, filename: 'تصدير_الأخبار', supportedFormats: ['xlsx', 'json'] },
+    { type: 'accessCodes', label: 'تصدير رموز الدخول', fetchData: getAccessCodes, filename: 'تصدير_رموز_الدخول', supportedFormats: ['xlsx', 'json'] },
+    { type: 'users', label: 'تصدير المستخدمين', fetchData: getUsers, filename: 'تصدير_المستخدمين', supportedFormats: ['xlsx', 'json'] },
+    { type: 'subjects', label: 'تصدير المواد (مع التفاصيل)', fetchData: getSubjectsWithDetails, filename: 'تصدير_المواد_مع_التفاصيل', supportedFormats: ['json'] },
   ];
 
   return (
@@ -180,19 +170,19 @@ export default function ExportPage() {
         <CardHeader>
           <div className="flex items-center space-x-3 mb-2 rtl:space-x-reverse">
             <Download className="h-8 w-8 text-primary" />
-            <CardTitle className="text-3xl font-bold tracking-tight">Export Data</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight">تصدير البيانات</CardTitle>
           </div>
           <CardDescription className="text-lg text-muted-foreground">
-            Download your application data in various formats. 
-            (Note: Data fetching will fail until Firestore functions are migrated to Supabase).
+            قم بتنزيل بيانات التطبيق الخاصة بك بتنسيقات مختلفة. 
+            (ملاحظة: سيفشل جلب البيانات حتى يتم ترحيل وظائف Firestore إلى Supabase).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <p className="text-sm text-muted-foreground">
-            Select the data type and format you wish to export. 
-            Date fields will be exported as ISO date strings.
-            For nested data like Subjects (with sections and lessons), JSON format is recommended.
-            For Questions exported to XLSX, options and correct answers will be in separate columns.
+            اختر نوع البيانات والتنسيق الذي ترغب في تصديره. 
+            سيتم تصدير حقول التاريخ كسلاسل تاريخ ISO.
+            بالنسبة للبيانات المتداخلة مثل المواد (مع الأقسام والدروس)، يوصى باستخدام تنسيق JSON.
+            بالنسبة للأسئلة المصدرة إلى XLSX، ستكون الخيارات والإجابات الصحيحة في أعمدة منفصلة.
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
@@ -203,6 +193,7 @@ export default function ExportPage() {
                   defaultValue={exportFormats[type]} 
                   onValueChange={(value) => handleFormatChange(type, value as ExportFormat)}
                   className="mb-4"
+                  dir="rtl"
                 >
                   {supportedFormats.includes('xlsx') && (
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
@@ -218,8 +209,8 @@ export default function ExportPage() {
                   )}
                 </RadioGroup>
                 <Button onClick={() => handleExport(type, fetchData, filename)} disabled={loadingStates[type]} className="w-full">
-                  {loadingStates[type] ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Download className="mr-2 h-5 w-5" />}
-                  Export {exportFormats[type].toUpperCase()}
+                  {loadingStates[type] ? <Loader2 className="ml-2 h-5 w-5 animate-spin rtl:mr-2 rtl:ml-0" /> : <Download className="ml-2 h-5 w-5 rtl:mr-2 rtl:ml-0" />}
+                  تصدير {exportFormats[type].toUpperCase()}
                 </Button>
               </Card>
             ))}

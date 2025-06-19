@@ -22,19 +22,19 @@ import { getAppSettings } from '@/lib/firestore';
 import type { AppSettings } from '@/types'; 
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/dashboard/subjects', label: 'Subjects', icon: BookOpenCheck },
-  { href: '/dashboard/questions', label: 'Questions', icon: FileQuestion },
-  { href: '/dashboard/tags', label: 'Tags', icon: Tags },
-  { href: '/dashboard/exams', label: 'Exams', icon: ClipboardList },
-  { href: '/dashboard/analytics/exams', label: 'Exam Analytics', icon: BarChart3 },
-  { href: '/dashboard/news', label: 'News', icon: Newspaper },
-  { href: '/dashboard/announcements', label: 'Announcements', icon: Megaphone },
-  { href: '/dashboard/community', label: 'Community', icon: MessageSquare },
-  { href: '/dashboard/qr-codes', label: 'QR Codes', icon: QrCode },
-  { href: '/dashboard/teachers', label: 'Teachers', icon: Users2 },
-  { href: '/dashboard/export', label: 'Export Data', icon: Download },
-  { href: '/dashboard/import', label: 'Import Data', icon: Upload },
+  { href: '/dashboard', label: 'لوحة التحكم', icon: Home },
+  { href: '/dashboard/subjects', label: 'المواد الدراسية', icon: BookOpenCheck },
+  { href: '/dashboard/questions', label: 'الأسئلة', icon: FileQuestion },
+  { href: '/dashboard/tags', label: 'التصنيفات', icon: Tags },
+  { href: '/dashboard/exams', label: 'الامتحانات', icon: ClipboardList },
+  { href: '/dashboard/analytics/exams', label: 'تحليلات الامتحانات', icon: BarChart3 },
+  { href: '/dashboard/news', label: 'الأخبار', icon: Newspaper },
+  { href: '/dashboard/announcements', label: 'الإعلانات', icon: Megaphone },
+  { href: '/dashboard/community', label: 'المجتمع', icon: MessageSquare },
+  { href: '/dashboard/qr-codes', label: 'رموز QR', icon: QrCode },
+  { href: '/dashboard/teachers', label: 'المدرسون', icon: Users2 },
+  { href: '/dashboard/export', label: 'تصدير البيانات', icon: Download },
+  { href: '/dashboard/import', label: 'استيراد البيانات', icon: Upload },
 ];
 
 export default function AppSidebar() {
@@ -58,10 +58,10 @@ export default function AppSidebar() {
   }, []);
 
   const appLogoUrl = appSettings?.appLogoUrl;
-  const appName = appSettings?.appName || "Atmetny Admin";
+  const appName = appSettings?.appName || "اتمتني مسؤول";
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" side="right"> {/* Changed side to "right" */}
+    <Sidebar collapsible="icon" variant="sidebar" side="right">
       <SidebarHeader className="flex items-center justify-between p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <div 
@@ -123,10 +123,10 @@ export default function AppSidebar() {
                 pathname === '/dashboard/settings' ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
                 )}
                 isActive={pathname === '/dashboard/settings'}
-                tooltip={{ children: "Settings", side: 'left', align: 'center' }}
+                tooltip={{ children: "الإعدادات", side: 'left', align: 'center' }}
             >
                 <Settings className="h-5 w-5 shrink-0" />
-                <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">Settings</span>
+                <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">الإعدادات</span>
             </SidebarMenuButton>
         </Link>
       </SidebarFooter>

@@ -79,7 +79,7 @@ export default function TeachersTable() {
 
   const handleOpenEditModal = (teacher: UserProfile) => {
     setEditingTeacher(teacher);
-    setSelectedSubjectIdsInDialog(teacher.subjects_taught_ids || []); // Initialize with existing array
+    setSelectedSubjectIdsInDialog(teacher.subjects_taught_ids || []); 
     setCurrentYoutubeUrl(teacher.youtube_channel_url || '');
   };
 
@@ -95,7 +95,7 @@ export default function TeachersTable() {
     if (!editingTeacher) return;
     setIsSaving(true);
     try {
-      if (currentYoutubeUrl && !currentYoutubeUrl.startsWith('http://') && !currentYoutubeUrl.startsWith('https://')) {
+      if (currentYoutubeUrl && !currentYoutubeUrl.startsWith('http://') && !currentYoutubeUrl.startsWith('https://') && currentYoutubeUrl.trim() !== '') {
         toast({
           variant: "destructive",
           title: "رابط غير صحيح",
@@ -107,7 +107,7 @@ export default function TeachersTable() {
 
       const updatePayload: Partial<UserProfile> = {
         subjects_taught_ids: selectedSubjectIdsInDialog.length > 0 ? selectedSubjectIdsInDialog : null,
-        youtube_channel_url: currentYoutubeUrl || null,
+        youtube_channel_url: currentYoutubeUrl.trim() || null,
       };
 
       await updateUser(editingTeacher.id, updatePayload); 
@@ -200,8 +200,8 @@ export default function TeachersTable() {
                         </Button>
                       </DialogTrigger>
                       {editingTeacher && editingTeacher.id === teacher.id && ( 
-                        <DialogContent className="sm:max-w-[425px] md:max-w-lg">
-                          <DialogHeader>
+                        <DialogContent className="sm:max-w-[425px] md:max-w-lg" dir="rtl">
+                          <DialogHeader className="text-right">
                             <DialogTitle>إدارة تفاصيل المدرس: {editingTeacher.name || editingTeacher.email}</DialogTitle> 
                             <DialogDescription>
                               اختر المواد التي يدرسها هذا المدرس وعدل رابط قناة يوتيوب.
@@ -246,7 +246,7 @@ export default function TeachersTable() {
                             </div>
                           </div>
 
-                          <DialogFooter>
+                          <DialogFooter className="flex-row-reverse">
                             <DialogClose asChild>
                                 <Button type="button" variant="outline" onClick={() => setEditingTeacher(null)}>إلغاء</Button>
                             </DialogClose>
@@ -255,7 +255,7 @@ export default function TeachersTable() {
                               onClick={handleSaveTeacherDetails} 
                               disabled={isSaving}
                             >
-                              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                              {isSaving ? <Loader2 className="ml-2 h-4 w-4 animate-spin rtl:mr-2 rtl:ml-0" /> : <Check className="ml-2 h-4 w-4 rtl:mr-2 rtl:ml-0" />}
                               حفظ التغييرات
                             </Button>
                           </DialogFooter>
