@@ -100,14 +100,14 @@ export default function AppSidebar() {
                 <Link href={item.href}>
                   <SidebarMenuButton
                     className={cn(
-                      "w-full justify-start", // justify-start in RTL means content starts from the right
+                      "w-full justify-start",
                       pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')  ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
                     )}
                     isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
                     tooltip={{ children: item.label, side: 'left', align: 'center' }} 
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
-                    <span className="truncate text-right group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    <span className="truncate text-right group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden flex-grow">{item.label}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -126,7 +126,7 @@ export default function AppSidebar() {
                 tooltip={{ children: "الإعدادات", side: 'left', align: 'center' }}
             >
                 <Settings className="h-5 w-5 shrink-0" />
-                <span className="truncate text-right group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">الإعدادات</span>
+                <span className="truncate text-right group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden flex-grow">الإعدادات</span>
             </SidebarMenuButton>
         </Link>
       </SidebarFooter>
