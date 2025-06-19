@@ -1,6 +1,6 @@
 // src/components/layout/app-header.tsx
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // Added useRef
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,18 +12,19 @@ import {
   DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, School, UserCircle, Menu, Bell, Info, Loader2, MessageSquareWarning, CheckCircle2, UserPlus, ExternalLinkIcon } from 'lucide-react';
+import { LogOut, School, UserCircle, Menu, Bell, Info, Loader2, MessageSquareWarning, UserPlus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabaseClient'; 
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from '../ui/sidebar';
 import type { AdminNotification, AppSettings, AdminNotificationType } from '@/types'; 
-import { getAppSettings, getAdminNotifications, markNotificationAsRead } from '@/lib/firestore'; // Updated imports
+import { getAppSettings, getAdminNotifications, markNotificationAsRead } from '@/lib/firestore';
 import { formatDistanceToNow, parseISO } from 'date-fns'; 
-import { arSA } from 'date-fns/locale'; // For Arabic locale
+import { arSA } from 'date-fns/locale';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import NextImage from 'next/image'; 
+import { cn } from "@/lib/utils";
 
 export default function AppHeader() {
   const { userProfile, user } = useAuth(); 
@@ -34,6 +35,7 @@ export default function AppHeader() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
+  const isLoadingNotificationsRef = useRef(false); // Ref to guard fetchNotifications
 
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [isLoadingLogo, setIsLoadingLogo] = useState(true);
@@ -54,48 +56,66 @@ export default function AppHeader() {
   }, []);
 
   const fetchNotifications = useCallback(async (markAsRead = false) => {
-    if (isLoadingNotifications) return;
-    setIsLoadingNotifications(true);
+    if (isLoadingNotificationsRef.current) return; // Guard against re-entrant calls
+    isLoadingNotificationsRef.current = true;
+    setIsLoadingNotifications(true); // Update state for UI
     try {
       const fetchedNots = await getAdminNotifications({ limit: 15, unreadOnly: !markAsRead });
       setNotifications(fetchedNots);
-      if (markAsRead) {
-        // In a real scenario, you'd mark these specific fetched notifications as read on the backend
-        // For now, we'll just refetch all or assume they are marked read if the dropdown is opened
-        console.log("Notifications would be marked as read if this logic was fully implemented.");
+      if (markAsRead && fetchedNots.length > 0) {
+        // Placeholder: In a real scenario, you might mark only the *newly fetched and unread* 
+        // notifications as read, or all displayed ones.
+        // For now, this will just log if any unread were fetched while 'markAsRead' was true.
+        const unreadFetched = fetchedNots.filter(n => !n.is_read);
+        if (unreadFetched.length > 0) {
+           console.log(`${unreadFetched.length} unread notifications were fetched and would be marked as read.`);
+           // Example: Iterate and mark them
+           // for (const not of unreadFetched) {
+           //   await handleMarkAsRead(not.id); // This would update state one by one
+           // }
+           // Or, more efficiently, if backend supports bulk mark as read:
+           // await markMultipleNotificationsAsRead(unreadFetched.map(n => n.id));
+           // For simplicity, we'll rely on individual marking for now if user clicks.
+        }
       }
     } catch (error) {
         console.error("Error fetching notifications:", error);
-        // toast({ variant: "destructive", title: "Error fetching notifications", description: "Could not load notifications."});
     } finally {
-      setIsLoadingNotifications(false);
+      setIsLoadingNotifications(false); // Update state for UI
+      isLoadingNotificationsRef.current = false;
     }
-  }, [isLoadingNotifications]); // Added toast
-
-  const handleNotificationDropdownToggle = (open: boolean) => {
-    setIsNotificationDropdownOpen(open);
-    if (open) {
-      fetchNotifications(true); // Fetch and ideally mark as read when dropdown opens
-    }
-  };
-  
-  useEffect(() => {
-    // Initial fetch or fetch on dashboard view (if desired)
-    if(pathname === '/dashboard') { // Example: Fetch when dashboard is viewed
-        fetchNotifications();
-    }
-  }, [pathname, fetchNotifications]);
+  }, []); // Empty dependency array makes this callback stable
 
   const handleMarkAsRead = async (notificationId: string) => {
+    // Prevent re-marking if already read in current state
+    const notification = notifications.find(n => n.id === notificationId);
+    if (notification && notification.is_read) return;
+
     try {
       await markNotificationAsRead(notificationId);
       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
-      // Optionally, refetch or just update UI
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
   };
 
+  const handleNotificationDropdownToggle = (open: boolean) => {
+    setIsNotificationDropdownOpen(open);
+    if (open) {
+      // Fetch notifications when dropdown is opened.
+      // `markAsRead = true` here implies we want to fetch a fresh list (including read ones if unreadOnly is false)
+      // and potentially mark displayed unread items as read.
+      fetchNotifications(true); 
+    }
+  };
+  
+  useEffect(() => {
+    // Fetch notifications when the component mounts and pathname is /dashboard
+    // Or if fetchNotifications reference changes (it's stable now)
+    if (pathname === '/dashboard') {
+      fetchNotifications();
+    }
+  }, [pathname, fetchNotifications]);
 
   const handleLogout = async () => {
     try {
@@ -206,16 +226,18 @@ export default function AppHeader() {
                       !not.is_read && "bg-primary/10 hover:bg-primary/20"
                     )}
                     onSelect={(e) => {
-                      if (not.link_path) {
-                        router.push(not.link_path);
-                      }
                       if (!not.is_read) {
                         handleMarkAsRead(not.id);
                       }
-                      e.preventDefault(); // Prevent dropdown from closing if it's a link
+                      if (not.link_path) {
+                        router.push(not.link_path);
+                      } else {
+                        // If no link_path, prevent dropdown from closing if that's desired for non-link items
+                        // For now, default behavior is fine (dropdown closes)
+                      }
+                       // e.preventDefault(); // Only preventDefault if you want to stop dropdown from closing on non-link items
                     }}
                   >
-                    {/* Use Link if link_path exists, otherwise a div */}
                     {not.link_path ? (
                        <Link href={not.link_path} className="w-full">
                         <div className="flex items-start gap-2 py-1.5">
@@ -232,7 +254,7 @@ export default function AppHeader() {
                         </div>
                       </Link>
                     ) : (
-                       <div className="w-full flex items-start gap-2 py-1.5" onClick={() => !not.is_read && handleMarkAsRead(not.id)}>
+                       <div className="w-full flex items-start gap-2 py-1.5">
                             {getNotificationIcon(not.type)}
                             <div className="flex-grow">
                             <p className="text-sm text-foreground leading-snug">{not.message}</p>
@@ -295,4 +317,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
