@@ -334,12 +334,14 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
   for (const [index, item] of rawImportData.entries()) {
     console.log(`[importQuestionsBatch] Processing item ${index + 1}:`, JSON.stringify(item).substring(0, 200) + "...");
 
+    // Validate essential fields
     if (!item.questiontype || !item.questiontext || !item.difficulty || !item.subjectid) {
         console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to missing required fields (questiontype, questiontext, difficulty, subjectid). Item:`, item);
         skippedCount++;
         continue;
     }
-     // Validate subjectid is a UUID (basic check)
+
+    // Validate subjectid is a UUID (basic check)
     const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
     if (!uuidRegex.test(String(item.subjectid))) {
         console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to invalid subjectid format (not a UUID): "${item.subjectid}". Item:`, item);
@@ -352,14 +354,14 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       question_type: item.questiontype as QuestionType,
       question_text: String(item.questiontext),
       difficulty: item.difficulty as 'easy' | 'medium' | 'hard',
-      subject_id: String(item.subjectid),
+      subject_id: String(item.subjectid), // Assuming item.subjectid is already a valid UUID from ImportPage
       lesson_id: item.lessonid ? String(item.lessonid) : null,
       tag_ids: item.tagids ? String(item.tagids).split(',').map((t: string) => t.trim()).filter(Boolean) : [],
       is_sane: item.issane !== undefined ? String(item.issane).toLowerCase() === 'true' : null,
       sanity_explanation: item.sanityexplanation || null,
       is_locked: item.islocked !== undefined ? String(item.islocked).toLowerCase() === 'true' : true,
     };
-     console.log(`[importQuestionsBatch] Item ${index + 1} base dbData constructed:`, dbData);
+    console.log(`[importQuestionsBatch] Item ${index + 1} base dbData constructed:`, dbData);
 
 
     switch (dbData.question_type) {
@@ -376,23 +378,24 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
         if (options.length < 2) {
           console.warn(`[importQuestionsBatch] Skipping MCQ item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") due to less than 2 options. Options found: ${options.length}`);
           skippedCount++;
-          continue;
+          continue; // Skip this question
         }
         
+        // Determine correctOptionId
         let correctMcqIndex = -1;
-        if (item.correctoptionindex) {
+        if (item.correctoptionindex) { // 1-based index from import
           correctMcqIndex = parseInt(String(item.correctoptionindex), 10) - 1;
-        } else if (item.correctoptiontext) {
+        } else if (item.correctoptiontext) { // Text of the correct option
           correctMcqIndex = options.findIndex(opt => opt.text.trim().toLowerCase() === String(item.correctoptiontext).trim().toLowerCase());
         }
 
         if (correctMcqIndex >= 0 && correctMcqIndex < options.length) {
           dbData.correct_option_id = options[correctMcqIndex].id;
-          console.log(`[importQuestionsBatch] Item ${index + 1} (MCQ) correct_option_id set to: ${dbData.correct_option_id}`);
+           console.log(`[importQuestionsBatch] Item ${index + 1} (MCQ) correct_option_id set to: ${dbData.correct_option_id}`);
         } else {
           console.warn(`[importQuestionsBatch] Skipping MCQ item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Could not determine correct option. Index: "${item.correctoptionindex}", Text: "${item.correctoptiontext}". Generated options: ${JSON.stringify(options)}.`);
           skippedCount++;
-          continue;
+          continue; // Skip this question
         }
         break;
       case 'true_false':
@@ -401,9 +404,9 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
         if (correctBoolAnswer === 'true' || correctBoolAnswer === 'false') {
           dbData.correct_option_id = correctBoolAnswer;
         } else {
-          console.warn(`[importQuestionsBatch] Skipping True/False item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Invalid correct answer: "${item.correctbooleananswer}".`);
+          console.warn(`[importQuestionsBatch] Skipping True/False item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Invalid correct answer: "${item.correctbooleananswer}". Expected 'true' or 'false'.`);
           skippedCount++;
-          continue;
+          continue; // Skip this question
         }
         break;
       case 'fill_in_the_blanks':
@@ -411,7 +414,7 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
         if (dbData.correct_answers.length === 0) {
            console.warn(`[importQuestionsBatch] Skipping Fill-in-the-blanks item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") due to no correct answers provided.`);
            skippedCount++;
-           continue;
+           continue; // Skip this question
         }
         break;
       case 'short_answer':
@@ -420,7 +423,7 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       default:
         console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to unsupported question type "${dbData.question_type}" (text: "${item.questiontext?.substring(0,30)}...").`);
         skippedCount++;
-        continue;
+        continue; // Skip this question
     }
     console.log(`[importQuestionsBatch] Item ${index + 1} successfully processed. Adding to batch. dbData:`, JSON.stringify(dbData));
     questionsToInsertToDb.push(dbData);
@@ -445,7 +448,8 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
     
     console.log("[importQuestionsBatch] Supabase insert response:", { status, statusText, count, data: insertData });
 
-    const insertedCount = insertData?.length || 0; // Supabase returns array of inserted items if .select() is used
+    // Supabase with .select() returns an array of the inserted items. The length of this array is the count.
+    const insertedCount = insertData?.length || 0; 
 
     if (insertedCount !== questionsToInsertToDb.length) {
       console.warn(`[importQuestionsBatch] Mismatch in expected and actual inserted count. Expected: ${questionsToInsertToDb.length}, Inserted (according to Supabase response): ${insertedCount}. This might indicate partial success or issues with some rows.`);
@@ -454,7 +458,10 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
 
     console.log(`[importQuestionsBatch] Successfully inserted ${insertedCount} questions into Supabase.`);
     if (insertedCount === 0 && questionsToInsertToDb.length > 0) {
-        throw new Error("Supabase reported successful operation but inserted 0 questions. Check constraints or RLS.");
+        // This condition means Supabase reported success (no error) but inserted 0 rows.
+        // This is a critical issue, likely due to RLS or table constraints not met by the data,
+        // even if individual field validation passed.
+        throw new Error("Supabase reported successful operation but inserted 0 questions. This indicates a potential issue with data constraints (e.g., foreign keys not matching, unique constraints violated for all rows) or Row Level Security policies preventing insertion. Please check your Supabase table logs and data validity.");
     }
 
   } else {
@@ -1448,6 +1455,12 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
   if (!newAnnouncement || !newAnnouncement.id) {
     throw new Error("Failed to add announcement: No ID returned from database.");
   }
+
+  // The creation of student notifications will be handled by a Supabase Database Trigger
+  // listening to inserts on the 'announcements' table.
+  // The trigger will iterate through all users with 'student' role (or all users if preferred)
+  // and insert into 'user_notifications'.
+
   return String(newAnnouncement.id);
 };
 
@@ -1495,6 +1508,8 @@ export const getAdminNotifications = async (options?: { limit?: number; unreadOn
 
   if (error) {
     console.error("Supabase error fetching admin notifications:", error);
+    // Instead of throwing, return empty or handle specific errors
+    // For now, returning empty so the UI doesn't break if DB is temporarily down.
     return []; 
   }
   return (data?.map(n => ({
@@ -1506,17 +1521,19 @@ export const getAdminNotifications = async (options?: { limit?: number; unreadOn
     related_entity_type: n.related_entity_type,
     is_read: n.is_read,
     created_at: n.created_at,
+    updated_at: n.updated_at, // Added updated_at to match type
   })) as AdminNotification[]) || [];
 };
 
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
   const { error } = await supabase
     .from('admin_notifications')
-    .update({ is_read: true, updated_at: new Date().toISOString() })
+    .update({ is_read: true, updated_at: new Date().toISOString() }) // Ensure updated_at is set
     .eq('id', notificationId);
 
   if (error) {
     console.error("Supabase error marking notification as read:", error);
+    // Optionally throw, or handle (e.g., UI feedback)
   }
 };
 
@@ -1559,4 +1576,8 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
+// --- User Notifications (Placeholder - to be implemented in student app) ---
+// export const getUserNotifications = async (userId: string): Promise<UserNotification[]> => { throw new Error("Not implemented for student app from admin context."); };
+// export const markUserNotificationAsRead = async (notificationId: string): Promise<void> => { throw new Error("Not implemented for student app from admin context."); };
 

@@ -282,6 +282,27 @@ export interface AdminNotification {
   related_entity_type?: string | null; // e.g., 'access_code', 'subject'
   is_read: boolean;
   created_at: string; // timestamptz
+  updated_at: string; // timestamptz
+}
+
+export type UserNotificationType = 
+  | 'new_announcement'
+  | 'exam_reminder'
+  | 'new_lesson_available'
+  | 'general_info';
+
+export interface UserNotification {
+  id: string; // uuid
+  user_id: string; // uuid, FK to profiles.id (or auth.users.id)
+  type: UserNotificationType;
+  title: string;
+  message: string;
+  link_path?: string | null; // Path within the student app
+  related_entity_id?: string | null;
+  related_entity_type?: string | null;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 
@@ -324,4 +345,3 @@ export interface Announcement {
 
 // Re-export the Database interface from the Supabase generated types
 export type Database = SupabaseDatabase;
-
