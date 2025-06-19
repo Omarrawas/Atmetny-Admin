@@ -14,18 +14,18 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, School, UserCircle, Menu, Bell, Info, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
+import { supabase } from '@/lib/supabaseClient'; 
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from '../ui/sidebar';
-// Firestore specific imports are no longer needed for notifications if they are also migrated
-// import { getAccessCodes } from '@/lib/firestore'; 
-import type { AccessCode, AdminNotification } from '@/types';
-import { format, addDays, isBefore } from 'date-fns';
+import type { AdminNotification, AppSettings } from '@/types'; // Added AppSettings
+import { getAppSettings } from '@/lib/firestore'; // Added getAppSettings
+import { format } from 'date-fns'; // Removed addDays, isBefore as they are not used currently
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import NextImage from 'next/image'; // Added NextImage
 
 export default function AppHeader() {
-  const { userProfile, user } = useAuth(); // user from Supabase
+  const { userProfile, user } = useAuth(); 
   const router = useRouter();
   const { toggleSidebar, isMobile } = useSidebar();
   const pathname = usePathname();
@@ -34,49 +34,30 @@ export default function AppHeader() {
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
 
-  // TODO: Notification generation logic needs to be updated to use Supabase
-  // For now, it will be empty or show an error if getAccessCodes relies on Firestore.
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [isLoadingLogo, setIsLoadingLogo] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoadingLogo(true);
+      try {
+        const settings = await getAppSettings();
+        setAppSettings(settings);
+      } catch (error) {
+        console.error("Error fetching app settings for header logo:", error);
+      } finally {
+        setIsLoadingLogo(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+
   const generateNotifications = useCallback(async () => {
     setIsLoadingNotifications(true);
     const generatedNots: AdminNotification[] = [];
-
-    // This part needs to be migrated to Supabase
-    // try {
-    //   // 1. QR Code Expiry Warnings
-    //   // const accessCodes = await getAccessCodes(); // This will fail if getAccessCodes is Firestore dependent
-    //   const accessCodes: AccessCode[] = []; // Placeholder
-    //   const today = new Date();
-    //   const sevenDaysFromNow = addDays(today, 7);
-
-    //   accessCodes.forEach(code => {
-    //     // Ensure validUntil is a Date object if it's a string from Supabase
-    //     const expiryDate = typeof code.validUntil === 'string' ? new Date(code.validUntil) : (code.validUntil as any)?.toDate?.() || null;
-
-    //     if (expiryDate && code.isActive && !code.isUsed) {
-    //       if (isBefore(expiryDate, sevenDaysFromNow) && isBefore(today, expiryDate)) { 
-    //         generatedNots.push({
-    //           id: `qr_expiry_${code.id}`,
-    //           type: 'qr_expiry_warning',
-    //           message: `رمز QR '${code.name}' سينتهي صلاحيته في ${format(expiryDate, 'PPP')}.`,
-    //           relatedId: code.id,
-    //           entityName: code.name,
-    //           linkPath: '/dashboard/qr-codes',
-    //           createdAt: new Date().toISOString(),
-    //         });
-    //       }
-    //     }
-    //   });
-    // } catch (error) {
-    //   console.error("Error generating notifications (Supabase migration needed):", error);
-    //   generatedNots.push({
-    //     id: 'error_loading_nots',
-    //     type: 'info',
-    //     message: 'فشل في تحميل بعض الإشعارات (Supabase migration in progress).',
-    //     createdAt: new Date().toISOString(),
-    //   });
-    // }
     console.warn("Notification generation needs to be migrated to Supabase.");
-    setNotifications(generatedNots); // Will be empty for now
+    setNotifications(generatedNots); 
     setIsLoadingNotifications(false);
   }, []);
 
@@ -91,7 +72,7 @@ export default function AppHeader() {
     if(pathname === '/dashboard' && isNotificationDropdownOpen) {
         // Potentially refresh notifications
     }
-  }, [pathname, isNotificationDropdownOpen]);
+  }, [pathname, isNotificationDropdownOpen, generateNotifications]); // Added generateNotifications to dependency array
 
   const handleLogout = async () => {
     try {
@@ -114,6 +95,9 @@ export default function AppHeader() {
     }
     return nameOrEmail.substring(0, 2).toUpperCase();
   };
+  
+  const appLogoUrl = appSettings?.appLogoUrl;
+  const appName = appSettings?.appName || "Atmetny Admin Lite"; // Use app name from settings or default
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card px-4 shadow-sm sm:px-6">
@@ -124,8 +108,22 @@ export default function AppHeader() {
             <span className="sr-only">Toggle Sidebar</span>
           </Button>
         )}
-        <School className="h-7 w-7 text-primary" />
-        <h1 className="text-xl font-semibold text-foreground">Atmetny Admin Lite</h1>
+        <div className="relative flex h-7 w-7 items-center justify-center text-primary">
+          {isLoadingLogo ? (
+            <Loader2 className="h-full w-full animate-spin" />
+          ) : appLogoUrl && appLogoUrl.trim() !== '' ? (
+            <NextImage 
+              src={appLogoUrl} 
+              alt={`${appName} Logo`} 
+              fill 
+              sizes="28px" 
+              className="object-contain" 
+            />
+          ) : (
+            <School className="h-full w-full" />
+          )}
+        </div>
+        <h1 className="text-xl font-semibold text-foreground">Atmetny Admin Lite</h1> 
       </div>
       
       <div className="flex items-center gap-2">
@@ -182,7 +180,7 @@ export default function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {user && ( // Check Supabase user object
+        {user && ( 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
