@@ -337,15 +337,15 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
 
 
   return (
-    <Card className="mt-6 shadow-md border border-border/60">
-      <CardHeader>
+    <Card className="mt-2 shadow-md border border-border/60">
+      <CardHeader className="py-3 px-4">
         {/* Subject name is passed as prop, no need to display it here again if dialog is for subject */}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 pb-3 px-4">
         {!showAddSectionForm && (
           <Button
             variant="outline"
-            className="w-full my-3"
+            className="w-full my-1"
             onClick={() => setShowAddSectionForm(true)}
           >
             <PlusCircle className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
@@ -353,15 +353,15 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
           </Button>
         )}
         {showAddSectionForm && (
-          <div className="my-4 p-4 border rounded-lg bg-muted/30">
-            <h3 className="text-lg font-semibold mb-3">إضافة قسم جديد للمادة</h3>
+          <div className="my-2 p-3 border rounded-lg bg-muted/30">
+            <h3 className="text-lg font-semibold mb-2">إضافة قسم جديد للمادة</h3>
             <AddSectionForm
               subjectId={subjectId}
               onSectionAdded={() => handleContentAddedOrDeletedInSection('section')}
             />
             <Button
               variant="ghost"
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-destructive"
+              className="w-full mt-2 text-sm text-muted-foreground hover:text-destructive"
               onClick={() => setShowAddSectionForm(false)}
             >
               إلغاء إضافة القسم
@@ -369,12 +369,12 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
           </div>
         )}
         {sections.length === 0 && !isLoadingSections && !showAddSectionForm ? (
-          <p className="text-center text-muted-foreground py-4">لا توجد أقسام مضافة لهذه المادة حتى الآن.</p>
+          <p className="text-center text-muted-foreground py-3">لا توجد أقسام مضافة لهذه المادة حتى الآن.</p>
         ) : (
-          <div className="space-y-4 mt-4">
+          <div className="space-y-2 mt-2">
             {sections.map((section) => (
                 <Card key={section.id} className="bg-card shadow-sm">
-                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 px-4 gap-2">
+                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-2.5 px-3 gap-2">
                     <div>
                       <CardTitle className="text-lg flex items-center">
                         {section.order !== undefined && section.order !== null && (
@@ -385,17 +385,17 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                         )}
                         القسم: {section.title}
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs">
                         النوع: <Badge variant={section.type === 'theory' ? 'secondary' : 'outline'} className="text-xs">
                           {section.type === 'theory' ? 'نظري' : 'عملي'}
                         </Badge>
                       </CardDescription>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap">
                       <UiDialog open={editingSection?.id === section.id} onOpenChange={(open) => { if (!open) setEditingSection(null); }}>
                         <UiDialogTrigger asChild>
                           <Button variant="outline" size="sm" onClick={() => handleOpenEditSectionDialog(section)}>
-                              <Edit className="h-4 w-4 mr-1 rtl:ml-1 rtl:mr-0"/> تعديل القسم
+                              <Edit className="h-3.5 w-3.5 mr-1 rtl:ml-1 rtl:mr-0"/> تعديل القسم
                           </Button>
                         </UiDialogTrigger>
                         {editingSection && editingSection.id === section.id && (
@@ -484,7 +484,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                       <AlertDialog>
                           <AlertDialogTriggerComponent asChild>
                             <Button variant="destructive" size="sm" onClick={() => setDeletingSectionId(section.id!)}>
-                              <Trash2 className="mr-1 h-4 w-4 rtl:ml-1 rtl:mr-0" /> حذف القسم
+                              <Trash2 className="mr-1 h-3.5 w-3.5 rtl:ml-1 rtl:mr-0" /> حذف القسم
                             </Button>
                           </AlertDialogTriggerComponent>
                           <AlertDialogContent>
@@ -516,7 +516,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                         }}>
                           <UiDialogTrigger asChild>
                             <Button size="sm" variant="outline">
-                                <ListChecks className="mr-1 h-4 w-4 rtl:ml-1 rtl:mr-0"/>
+                                <ListChecks className="mr-1 h-3.5 w-3.5 rtl:ml-1 rtl:mr-0"/>
                                 إدارة الدروس ({(lessonsBySection[section.id!] || []).length})
                             </Button>
                           </UiDialogTrigger>
