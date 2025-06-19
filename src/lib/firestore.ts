@@ -322,101 +322,150 @@ export const getQuestionById = async (id: string): Promise<Question | null> => {
 };
 
 export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> => {
+  console.log("[importQuestionsBatch] Starting batch import process. Received items:", rawImportData.length);
   if (!rawImportData || rawImportData.length === 0) {
-    console.log("importQuestionsBatch: No data provided to import.");
+    console.log("[importQuestionsBatch] No data provided to import.");
     return;
   }
 
   const questionsToInsertToDb = [];
+  let skippedCount = 0;
 
-  for (const item of rawImportData) {
-    // Basic validation for required fields that are expected to be directly in `item`
-    // based on normalization in `import/page.tsx` (e.g., item.questiontype, item.questiontext).
+  for (const [index, item] of rawImportData.entries()) {
+    console.log(`[importQuestionsBatch] Processing item ${index + 1}:`, JSON.stringify(item).substring(0, 200) + "...");
+
     if (!item.questiontype || !item.questiontext || !item.difficulty || !item.subjectid) {
-        console.warn("Skipping question due to missing required fields (questiontype, questiontext, difficulty, subjectid):", item);
+        console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to missing required fields (questiontype, questiontext, difficulty, subjectid). Item:`, item);
+        skippedCount++;
         continue;
     }
+     // Validate subjectid is a UUID (basic check)
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!uuidRegex.test(String(item.subjectid))) {
+        console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to invalid subjectid format (not a UUID): "${item.subjectid}". Item:`, item);
+        skippedCount++;
+        continue;
+    }
+
 
     const dbData: any = {
       question_type: item.questiontype as QuestionType,
       question_text: String(item.questiontext),
       difficulty: item.difficulty as 'easy' | 'medium' | 'hard',
-      subject_id: String(item.subjectid), // CRITICAL: Assumes subjectid IS the actual UUID.
-                                          // Import page should resolve subject name to ID if name is provided.
+      subject_id: String(item.subjectid),
       lesson_id: item.lessonid ? String(item.lessonid) : null,
       tag_ids: item.tagids ? String(item.tagids).split(',').map((t: string) => t.trim()).filter(Boolean) : [],
       is_sane: item.issane !== undefined ? String(item.issane).toLowerCase() === 'true' : null,
       sanity_explanation: item.sanityexplanation || null,
       is_locked: item.islocked !== undefined ? String(item.islocked).toLowerCase() === 'true' : true,
     };
+     console.log(`[importQuestionsBatch] Item ${index + 1} base dbData constructed:`, dbData);
+
 
     switch (dbData.question_type) {
       case 'mcq':
         const options: Option[] = [];
         for (let i = 1; i <= 6; i++) {
-          if (item[`option${i}`]) { // `option1`, `option2` are from CSV/XLSX
+          if (item[`option${i}`]) {
             options.push({ id: uuidv4(), text: String(item[`option${i}`]) });
           }
         }
         dbData.options = options;
+        console.log(`[importQuestionsBatch] Item ${index + 1} (MCQ) options:`, options);
 
         if (options.length < 2) {
-          console.warn(`MCQ question (text: "${item.questiontext?.substring(0,30)}...") has less than 2 options, skipping.`);
+          console.warn(`[importQuestionsBatch] Skipping MCQ item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") due to less than 2 options. Options found: ${options.length}`);
+          skippedCount++;
           continue;
         }
         
         let correctMcqIndex = -1;
-        if (item.correctoptionindex) { // 1-based index from CSV/XLSX
+        if (item.correctoptionindex) {
           correctMcqIndex = parseInt(String(item.correctoptionindex), 10) - 1;
-        } else if (item.correctoptiontext) { // Text of correct option from CSV/XLSX
+        } else if (item.correctoptiontext) {
           correctMcqIndex = options.findIndex(opt => opt.text.trim().toLowerCase() === String(item.correctoptiontext).trim().toLowerCase());
         }
 
         if (correctMcqIndex >= 0 && correctMcqIndex < options.length) {
           dbData.correct_option_id = options[correctMcqIndex].id;
+          console.log(`[importQuestionsBatch] Item ${index + 1} (MCQ) correct_option_id set to: ${dbData.correct_option_id}`);
         } else {
-          console.warn(`Could not determine correct option for MCQ (text: "${item.questiontext?.substring(0,30)}..."), correctOptionIndex: "${item.correctoptionindex}", correctOptionText: "${item.correctoptiontext}". Options generated: ${JSON.stringify(options)}. Skipping question.`);
+          console.warn(`[importQuestionsBatch] Skipping MCQ item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Could not determine correct option. Index: "${item.correctoptionindex}", Text: "${item.correctoptiontext}". Generated options: ${JSON.stringify(options)}.`);
+          skippedCount++;
           continue;
         }
         break;
       case 'true_false':
         dbData.options = [{ id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' }];
-        const correctBoolAnswer = String(item.correctbooleananswer).toLowerCase(); // From CSV/XLSX
+        const correctBoolAnswer = String(item.correctbooleananswer).toLowerCase();
         if (correctBoolAnswer === 'true' || correctBoolAnswer === 'false') {
           dbData.correct_option_id = correctBoolAnswer;
         } else {
-          console.warn(`Invalid correct answer for True/False (text: "${item.questiontext?.substring(0,30)}..."), received: ${item.correctbooleananswer}, skipping.`);
+          console.warn(`[importQuestionsBatch] Skipping True/False item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Invalid correct answer: "${item.correctbooleananswer}".`);
+          skippedCount++;
           continue;
         }
         break;
       case 'fill_in_the_blanks':
-        dbData.correct_answers = item.correctanswers ? String(item.correctanswers).split(';').map((ans: string) => ans.trim()).filter(Boolean) : []; // From CSV/XLSX
+        dbData.correct_answers = item.correctanswers ? String(item.correctanswers).split(';').map((ans: string) => ans.trim()).filter(Boolean) : [];
         if (dbData.correct_answers.length === 0) {
-           console.warn(`Fill in the blanks question (text: "${item.questiontext?.substring(0,30)}...") has no correct answers, skipping.`);
+           console.warn(`[importQuestionsBatch] Skipping Fill-in-the-blanks item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") due to no correct answers provided.`);
+           skippedCount++;
            continue;
         }
         break;
       case 'short_answer':
-        dbData.model_answer = item.modelanswer || null; // From CSV/XLSX
+        dbData.model_answer = item.modelanswer || null;
         break;
       default:
-        console.warn(`Unsupported question type "${dbData.question_type}" during import (text: "${item.questiontext?.substring(0,30)}..."), skipping.`);
+        console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to unsupported question type "${dbData.question_type}" (text: "${item.questiontext?.substring(0,30)}...").`);
+        skippedCount++;
         continue;
     }
+    console.log(`[importQuestionsBatch] Item ${index + 1} successfully processed. Adding to batch. dbData:`, JSON.stringify(dbData));
     questionsToInsertToDb.push(dbData);
   }
 
+  console.log(`[importQuestionsBatch] Finished processing all items. Total to insert: ${questionsToInsertToDb.length}, Total skipped: ${skippedCount}`);
+
   if (questionsToInsertToDb.length > 0) {
-    const { error } = await supabase.from('questions').insert(questionsToInsertToDb);
+    console.log("[importQuestionsBatch] Attempting to insert batch into Supabase. Batch data:", JSON.stringify(questionsToInsertToDb).substring(0, 500) + "...");
+    const { data: insertData, error, status, statusText, count } = await supabase.from('questions').insert(questionsToInsertToDb).select(); // Added .select() to get count
+
     if (error) {
-      console.error("Supabase error batch inserting questions:", error);
-      throw error;
+      console.error("[importQuestionsBatch] Supabase error batch inserting questions:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        rawError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      });
+      throw new Error(`Supabase batch insert failed: ${error.message}. Details: ${error.details || 'N/A'}`);
     }
-    console.log(`Successfully inserted ${questionsToInsertToDb.length} questions.`);
+    
+    console.log("[importQuestionsBatch] Supabase insert response:", { status, statusText, count, data: insertData });
+
+    const insertedCount = insertData?.length || 0; // Supabase returns array of inserted items if .select() is used
+
+    if (insertedCount !== questionsToInsertToDb.length) {
+      console.warn(`[importQuestionsBatch] Mismatch in expected and actual inserted count. Expected: ${questionsToInsertToDb.length}, Inserted (according to Supabase response): ${insertedCount}. This might indicate partial success or issues with some rows.`);
+      // You might want to throw an error here or handle partial success differently
+    }
+
+    console.log(`[importQuestionsBatch] Successfully inserted ${insertedCount} questions into Supabase.`);
+    if (insertedCount === 0 && questionsToInsertToDb.length > 0) {
+        throw new Error("Supabase reported successful operation but inserted 0 questions. Check constraints or RLS.");
+    }
+
   } else {
-    console.log("No valid questions found in the import data to insert.");
+    console.log("[importQuestionsBatch] No valid questions found in the import data to insert into Supabase.");
+    if (rawImportData.length > 0 && skippedCount === rawImportData.length) {
+        // All items were skipped
+        throw new Error("All questions in the import file were skipped due to validation errors. Please check the console logs for details on each skipped item.");
+    }
   }
 };
+
 
 
 // --- Exams ---
@@ -1446,7 +1495,6 @@ export const getAdminNotifications = async (options?: { limit?: number; unreadOn
 
   if (error) {
     console.error("Supabase error fetching admin notifications:", error);
-    // Don't throw error for notifications, just return empty array or log
     return []; 
   }
   return (data?.map(n => ({
@@ -1469,7 +1517,6 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
 
   if (error) {
     console.error("Supabase error marking notification as read:", error);
-    // Don't throw, just log for now, or decide if this should be a user-facing error
   }
 };
 
@@ -1512,3 +1559,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
+
