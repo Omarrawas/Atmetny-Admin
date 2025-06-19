@@ -16,7 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { addLesson, getExams } from '@/lib/firestore';
-import { Loader2, PlusCircle, Trash2, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy } from 'lucide-react'; // Added Copy
+import { Loader2, PlusCircle, Trash2, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy, Code2 } from 'lucide-react'; // Added Code2
 import type { LessonFile, LessonTeacher, Exam } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as UiDialogDescription, DialogFooter } from "@/components/ui/dialog"; // Renamed DialogDescription
@@ -46,6 +46,9 @@ const lessonFormSchema = z.object({
   linkedExamIds: z.array(z.string()).optional().default([]),
   notes: z.string().optional().nullable(),
   isLocked: z.boolean().optional().default(true), // Default to locked for new lessons
+  interactiveAppHtml: z.string().optional().nullable(),
+  interactiveAppCss: z.string().optional().nullable(),
+  interactiveAppJs: z.string().optional().nullable(),
 });
 type LessonFormValues = z.infer<typeof lessonFormSchema>;
 
@@ -77,6 +80,9 @@ export default function AddLessonForm({ subjectId, sectionId, onLessonAdded }: A
       linkedExamIds: [],
       notes: '',
       isLocked: true, // Default new lessons to locked (Firestore logic will unlock first lesson)
+      interactiveAppHtml: '',
+      interactiveAppCss: '',
+      interactiveAppJs: '',
     },
   });
 
@@ -168,6 +174,9 @@ export default function AddLessonForm({ subjectId, sectionId, onLessonAdded }: A
         linkedExamIds: data.linkedExamIds || [],
         notes: data.notes || null,
         isLocked: data.isLocked, // Pass the isLocked status
+        interactiveAppHtml: data.interactiveAppHtml || null,
+        interactiveAppCss: data.interactiveAppCss || null,
+        interactiveAppJs: data.interactiveAppJs || null,
       });
 
       toast({
@@ -364,6 +373,49 @@ export default function AddLessonForm({ subjectId, sectionId, onLessonAdded }: A
                 <LinkIcon className="mr-2 h-4 w-4" /> إضافة رابط ملف آخر
               </Button>
             </div>
+
+            <Card className="p-4 border bg-muted/30">
+                <CardHeader className="p-0 pb-2">
+                    <CardTitle className="text-md flex items-center"><Code2 className="h-5 w-5 mr-2 rtl:ml-2 rtl:mr-0 text-primary"/> تطبيق تفاعلي (اختياري)</CardTitle>
+                    <FormDescription>أضف كود HTML, CSS, و JavaScript لإنشاء تطبيق تفاعلي ضمن الدرس.</FormDescription>
+                </CardHeader>
+                <CardContent className="p-0 space-y-3">
+                    <FormField
+                    control={form.control}
+                    name="interactiveAppHtml"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-sm">HTML</FormLabel>
+                        <FormControl><Textarea placeholder="<div>...</div>" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="interactiveAppCss"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-sm">CSS</FormLabel>
+                        <FormControl><Textarea placeholder="body { background-color: #f0f0f0; }" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="interactiveAppJs"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-sm">JavaScript</FormLabel>
+                        <FormControl><Textarea placeholder="console.log('Hello World!');" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </CardContent>
+            </Card>
+
 
             <FormField
               control={form.control}

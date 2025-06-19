@@ -17,14 +17,14 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardContent as UiCardContent } from '@/components/ui/card'; // Renamed CardContent
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as UiFormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from '@/hooks/use-toast';
 import { updateLesson, getExams } from '@/lib/firestore';
-import { Loader2, Save, Trash2, PlusCircle, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy } from 'lucide-react';
+import { Loader2, Save, Trash2, PlusCircle, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy, Code2 } from 'lucide-react'; // Added Code2
 import type { Lesson, LessonFile, LessonTeacher, Exam } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Used for LaTeX modal
@@ -54,6 +54,9 @@ const lessonFormSchema = z.object({
   linkedExamIds: z.array(z.string()).optional().default([]),
   notes: z.string().optional().nullable(),
   isLocked: z.boolean().optional(), // No default, will be set from lessonToEdit
+  interactiveAppHtml: z.string().optional().nullable(),
+  interactiveAppCss: z.string().optional().nullable(),
+  interactiveAppJs: z.string().optional().nullable(),
 });
 type LessonFormValues = z.infer<typeof lessonFormSchema>;
 
@@ -100,6 +103,9 @@ export default function EditLessonForm({
         linkedExamIds: lessonToEdit.linkedExamIds || [],
         notes: lessonToEdit.notes || '',
         isLocked: lessonToEdit.isLocked ?? true, // Default to locked if undefined
+        interactiveAppHtml: lessonToEdit.interactiveAppHtml || '',
+        interactiveAppCss: lessonToEdit.interactiveAppCss || '',
+        interactiveAppJs: lessonToEdit.interactiveAppJs || '',
       };
       form.reset(initialFormValues);
     }
@@ -193,6 +199,9 @@ export default function EditLessonForm({
         linkedExamIds: data.linkedExamIds || [],
         notes: data.notes || null,
         isLocked: data.isLocked, // Pass the updated isLocked status
+        interactiveAppHtml: data.interactiveAppHtml || null,
+        interactiveAppCss: data.interactiveAppCss || null,
+        interactiveAppJs: data.interactiveAppJs || null,
       });
 
       toast({
@@ -219,8 +228,8 @@ export default function EditLessonForm({
     <UiDialog open={isOpen} onOpenChange={(open) => {
       onOpenChange(open);
     }}>
-      <UiDialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[90vh] flex flex-col bg-card" dir="rtl">
-        <UiDialogHeader className="text-right">
+      <UiDialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[90vh] flex flex-col bg-card p-4" dir="rtl">
+        <UiDialogHeader className="text-right pt-4 pb-3 px-4 border-b">
           <UiDialogTitle>تعديل الدرس: {lessonToEdit.title}</UiDialogTitle>
           <UiDialogDescription>
             قم بتحديث تفاصيل الدرس وروابط ملفاته وإسنادات المدرسين وحالة القفل.
@@ -396,6 +405,48 @@ export default function EditLessonForm({
                 <LinkIcon className="mr-2 h-4 w-4" /> إضافة رابط ملف آخر
               </Button>
             </div>
+
+            <Card className="p-4 border bg-muted/30">
+                <CardHeader className="p-0 pb-2">
+                    <UiDialogTitle className="text-md flex items-center"><Code2 className="h-5 w-5 mr-2 rtl:ml-2 rtl:mr-0 text-primary"/> تطبيق تفاعلي (اختياري)</UiDialogTitle>
+                    <UiFormDescription>عدّل كود HTML, CSS, و JavaScript للتطبيق التفاعلي ضمن الدرس.</UiFormDescription>
+                </CardHeader>
+                <UiCardContent className="p-0 space-y-3">
+                    <FormField
+                    control={form.control}
+                    name="interactiveAppHtml"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-sm">HTML</FormLabel>
+                        <FormControl><Textarea placeholder="<div>...</div>" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="interactiveAppCss"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-sm">CSS</FormLabel>
+                        <FormControl><Textarea placeholder="body { background-color: #f0f0f0; }" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="interactiveAppJs"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-sm">JavaScript</FormLabel>
+                        <FormControl><Textarea placeholder="console.log('Hello World!');" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </UiCardContent>
+            </Card>
 
             <FormField
               control={form.control}

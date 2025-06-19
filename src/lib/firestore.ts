@@ -799,6 +799,9 @@ export const addLesson = async (subjectId: string, sectionId: string, data: Omit
     is_locked: data.isLocked !== undefined ? data.isLocked : true,
     linked_exam_ids: data.linkedExamIds && data.linkedExamIds.length > 0 ? data.linkedExamIds : null,
     notes: data.notes || null,
+    interactive_app_html: data.interactiveAppHtml || null,
+    interactive_app_css: data.interactiveAppCss || null,
+    interactive_app_js: data.interactiveAppJs || null,
   };
 
   const { data: insertedData, error } = await supabase
@@ -845,12 +848,44 @@ export const getLessonsInSection = async (subjectId: string, sectionId: string):
     isLocked: lesson.is_locked,
     linkedExamIds: lesson.linked_exam_ids || [],
     notes: lesson.notes,
+    interactiveAppHtml: lesson.interactive_app_html,
+    interactiveAppCss: lesson.interactive_app_css,
+    interactiveAppJs: lesson.interactive_app_js,
     created_at: lesson.created_at,
     updated_at: lesson.updated_at,
   })) as Lesson[];
 };
 export const getLessonById = async (subjectId: string, sectionId: string, lessonId: string): Promise<Lesson | null> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": getLessonById"); };
-export const updateLesson = async (subjectId: string, sectionId: string, lessonId: string, data: Partial<Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>>): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": updateLesson"); };
+export const updateLesson = async (subjectId: string, sectionId: string, lessonId: string, data: Partial<Omit<Lesson, 'id' | 'subjectId' | 'sectionId' | 'created_at' | 'updated_at' | 'questions'>>): Promise<void> => {
+  const lessonDataToUpdate: any = {};
+  if (data.title !== undefined) lessonDataToUpdate.title = data.title;
+  if (data.hasOwnProperty('videoUrl')) lessonDataToUpdate.video_url = data.videoUrl;
+  if (data.hasOwnProperty('content')) lessonDataToUpdate.content = data.content;
+  if (data.hasOwnProperty('teachers')) lessonDataToUpdate.teachers = data.teachers && data.teachers.length > 0 ? data.teachers : null;
+  if (data.hasOwnProperty('files')) lessonDataToUpdate.files = data.files && data.files.length > 0 ? data.files : null;
+  if (data.hasOwnProperty('order')) lessonDataToUpdate.order = (data.order !== undefined && data.order !== null) ? data.order : null;
+  if (data.isLocked !== undefined) lessonDataToUpdate.is_locked = data.isLocked;
+  if (data.hasOwnProperty('linkedExamIds')) lessonDataToUpdate.linked_exam_ids = data.linkedExamIds && data.linkedExamIds.length > 0 ? data.linkedExamIds : null;
+  if (data.hasOwnProperty('notes')) lessonDataToUpdate.notes = data.notes;
+  if (data.hasOwnProperty('interactiveAppHtml')) lessonDataToUpdate.interactive_app_html = data.interactiveAppHtml;
+  if (data.hasOwnProperty('interactiveAppCss')) lessonDataToUpdate.interactive_app_css = data.interactiveAppCss;
+  if (data.hasOwnProperty('interactiveAppJs')) lessonDataToUpdate.interactive_app_js = data.interactiveAppJs;
+
+  if (Object.keys(lessonDataToUpdate).length === 0) {
+    console.warn(`updateLesson called with no data to update for lessonId: ${lessonId}`);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('lessons')
+    .update(lessonDataToUpdate)
+    .eq('id', lessonId);
+
+  if (error) {
+    console.error(`Supabase error updating lesson ${lessonId}:`, error);
+    throw error;
+  }
+};
 export const deleteLesson = async (subjectId: string, sectionId: string, lessonId: string): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": deleteLesson"); };
 
 // --- Users (Profiles) ---
