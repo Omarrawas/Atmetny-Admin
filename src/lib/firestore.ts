@@ -1,3 +1,4 @@
+
 // src/lib/firestore.ts
 // IMPORTANT: Most functions in this file need to be reimplemented to use Supabase.
 // Implementations for getUsers, getUserByEmail, updateUser, getTeachers, getSubjects, getTags, getQuestions, getExams, getNewsArticles are provided.
@@ -333,7 +334,7 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
   const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
   for (const [index, item] of rawImportData.entries()) {
-    // console.log(`[importQuestionsBatch] Processing item ${index + 1}:`, JSON.stringify(item).substring(0, 200) + "...");
+    console.log(`[importQuestionsBatch] Processing item ${index + 1}:`, JSON.stringify(item).substring(0, 200) + "...");
 
     if (!item.questiontype || !item.questiontext || !item.difficulty || !item.subjectid) {
       console.warn(`[importQuestionsBatch] Skipping item ${index + 1} due to missing required fields (questiontype, questiontext, difficulty, subjectid). Item:`, item);
@@ -358,7 +359,7 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       sanity_explanation: item.sanityexplanation || null,
       is_locked: item.islocked !== undefined ? String(item.islocked).toLowerCase() === 'true' : true,
     };
-    // console.log(`[importQuestionsBatch] Item ${index + 1} base dbData:`, dbData);
+    console.log(`[importQuestionsBatch] Item ${index + 1} base dbData:`, dbData);
 
     switch (dbData.question_type) {
       case 'mcq':
@@ -1633,6 +1634,3 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
-
-
-```
