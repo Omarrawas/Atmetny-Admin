@@ -4,7 +4,7 @@
 // ALL OTHER FUNCTIONS WILL THROW ERRORS.
 
 import { supabase } from '@/lib/supabaseClient';
-import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum, AnswerAttempt, AdminNotification } from '@/types';
+import type { Question, Exam, NewsArticle, Subject, AccessCode, SubjectSection, Lesson, UserProfile, Tag, ExamAttempt, AppSettings, Announcement, Option, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ExamQuestionLink, AnnouncementType, Badge, Reward, ActiveSubscription, SubjectBranchEnum, AnswerAttempt, AdminNotification, AdminNotificationType } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const NOT_IMPLEMENTED_ERROR = "This function is not implemented for Supabase. Please update src/lib/firestore.ts";
@@ -83,6 +83,7 @@ export const addSubject = async (data: Omit<Subject, 'id' | 'created_at' | 'upda
     image: data.image || null,
     icon_name: data.iconName || null,
     image_hint: data.imageHint || null,
+    interactive_app_content: (data as any).interactiveAppContent || null, // Added for single field
   };
 
   if (data.order !== undefined && data.order !== null) {
@@ -137,6 +138,7 @@ export const getSubjects = async (): Promise<Subject[]> => {
     id: String(s.id), // Ensure ID is string
     iconName: s.icon_name,
     imageHint: s.image_hint,
+    interactiveAppContent: (s as any).interactive_app_content, // Added for single field
     createdAt: s.created_at,
     updatedAt: s.updated_at,
   })) as Subject[]) || [];
@@ -150,11 +152,13 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
   if (data.image !== undefined) dbData.image = data.image;
   if (data.iconName !== undefined) dbData.icon_name = data.iconName;
   if (data.imageHint !== undefined) dbData.image_hint = data.imageHint;
+  if (data.hasOwnProperty('interactiveAppContent')) dbData.interactive_app_content = (data as any).interactiveAppContent; // Added for single field
   if (data.order !== undefined) {
     dbData.order = data.order;
   } else if (data.hasOwnProperty('order') && data.order === null) {
     dbData.order = null;
   }
+
 
   const { error } = await supabase.from('subjects').update(dbData).eq('id', id);
   if (error) throw error;
@@ -175,6 +179,7 @@ export const getSubjectById = async (id: string): Promise<Subject | null> => {
      id: String(data.id), // Ensure ID is string
      iconName: data.icon_name,
      imageHint: data.image_hint,
+     interactiveAppContent: (data as any).interactive_app_content, // Added for single field
      createdAt: data.created_at,
      updatedAt: data.updated_at,
    } as Subject;
@@ -892,23 +897,23 @@ const mapDbProfileToUserProfile = (dbProfile: any): UserProfile | null => {
     return {
       id: String(dbProfile.id),
       email: dbProfile.email || null,
-      name: dbProfile.name || null,
-      avatar_url: dbProfile.avatar_url || null,
-      avatar_hint: dbProfile.avatar_hint || null,
-      points: dbProfile.points || 0,
-      level: dbProfile.level || 1,
-      progress_to_next_level: dbProfile.progress_to_next_level || 0,
-      badges: Array.isArray(dbProfile.badges) ? dbProfile.badges as Badge[] : [],
-      rewards: Array.isArray(dbProfile.rewards) ? dbProfile.rewards as Reward[] : [],
-      student_goals: dbProfile.student_goals || null,
-      branch: dbProfile.branch as SubjectBranchEnum || null,
-      university: dbProfile.university || null,
-      major: dbProfile.major || null,
-      active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null,
-      role: dbProfile.role as UserProfile['role'] || 'user',
-      youtube_channel_url: dbProfile.youtube_channel_url || null,
+      name: dbProfile.name || null, // Changed from displayName, matches SQL 'name'
+      avatar_url: dbProfile.avatar_url || null, // From SQL
+      avatar_hint: dbProfile.avatar_hint || null, // From SQL
+      points: dbProfile.points || 0, // From SQL
+      level: dbProfile.level || 1, // From SQL
+      progress_to_next_level: dbProfile.progress_to_next_level || 0, // From SQL
+      badges: Array.isArray(dbProfile.badges) ? dbProfile.badges as Badge[] : [], // From SQL (jsonb) - maps to 'badges' column
+      rewards: Array.isArray(dbProfile.rewards) ? dbProfile.rewards as Reward[] : [], // From SQL (jsonb) - maps to 'rewards' column
+      student_goals: dbProfile.student_goals || null, // From SQL
+      branch: dbProfile.branch as SubjectBranchEnum || null, // From SQL - maps to 'branch' column
+      university: dbProfile.university || null, // From SQL
+      major: dbProfile.major || null, // From SQL
+      active_subscription: typeof dbProfile.active_subscription === 'object' && dbProfile.active_subscription !== null ? dbProfile.active_subscription as ActiveSubscription : null, // From SQL (jsonb) - maps to 'active_subscription' column
+      role: dbProfile.role as UserProfile['role'] || 'user', // From SQL
+      youtube_channel_url: dbProfile.youtube_channel_url || null, // From SQL
       subjects_taught_ids: Array.isArray(dbProfile.subjects_taught_ids) ? dbProfile.subjects_taught_ids : (dbProfile.subjects_taught_ids ? [dbProfile.subjects_taught_ids] : null), // Handle array or single, and map from snake_case
-      created_at: dbProfile.created_at,
+      created_at: dbProfile.created_at, // Supabase uses snake_case ISO date strings
       updated_at: dbProfile.updated_at,
     };
   } catch (error) {
@@ -1367,9 +1372,10 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
 
   if (error) {
     console.error("Supabase error marking notification as read:", error);
-    // Don't throw, just log for now
+    // Don't throw, just log for now, or decide if this should be a user-facing error
   }
 };
+
 
 // --- Batch Imports ---
 export const addExamsBatch = async (exams: Omit<Exam, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addExamsBatch"); };
@@ -1409,4 +1415,3 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
     }
 };
 export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
-
