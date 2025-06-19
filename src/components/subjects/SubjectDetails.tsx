@@ -380,7 +380,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                           </Button>
                         </UiDialogTrigger>
                         {editingSection && editingSection.id === section.id && (
-                          <UiDialogContent className="sm:max-w-[425px]" dir="rtl">
+                          <UiDialogContent className="sm:max-w-md bg-card" dir="rtl">
                           <UiDialogHeader className="text-right">
                               <UiDialogTitle>تعديل القسم: {editingSection.title}</UiDialogTitle>
                               <UiDialogDescription>
@@ -499,12 +499,12 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                 إدارة الدروس ({(lessonsBySection[section.id!] || []).length})
                             </Button>
                           </UiDialogTrigger>
-                          <UiDialogContent className="max-w-2xl md:max-w-3xl lg:max-w-4xl h-[90vh] flex flex-col" dir="rtl">
+                          <UiDialogContent className="max-w-2xl md:max-w-3xl lg:max-w-4xl h-[90vh] flex flex-col bg-card" dir="rtl">
                             <UiDialogHeader className="text-right pt-6 pb-4 px-6 border-b flex-shrink-0">
                               <UiDialogTitle>دروس القسم: {section.title}</UiDialogTitle>
                               <UiDialogDescription>إدارة الدروس والأسئلة المرتبطة بهذا القسم.</UiDialogDescription>
                             </UiDialogHeader>
-                            <ScrollArea className="flex-grow overflow-y-auto p-6 space-y-3">
+                            <ScrollArea className="flex-grow overflow-y-auto p-4 space-y-3"> {/* Reduced padding to p-4 */}
                                 <AddLessonForm
                                     subjectId={subjectId}
                                     sectionId={section.id!}

@@ -1,4 +1,3 @@
-
 // src/components/lessons/EditLessonForm.tsx
 "use client";
 
@@ -9,7 +8,7 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Dialog as UiDialog,
+  Dialog as UiDialog, // Renamed Dialog to UiDialog
   DialogContent as UiDialogContent,
   DialogHeader as UiDialogHeader,
   DialogTitle as UiDialogTitle,
@@ -25,13 +24,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from '@/hooks/use-toast';
 import { updateLesson, getExams } from '@/lib/firestore';
-import { Loader2, Save, Trash2, PlusCircle, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy } from 'lucide-react'; // Added Copy
+import { Loader2, Save, Trash2, PlusCircle, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy } from 'lucide-react';
 import type { Lesson, LessonFile, LessonTeacher, Exam } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Used for LaTeX modal
 import { BlockMath } from 'react-katex';
 import { Switch } from "@/components/ui/switch";
-import { Badge } from '@/components/ui/badge'; // Added this import
+import { Badge } from '@/components/ui/badge';
 
 
 const lessonTeacherSchema = z.object({
@@ -220,7 +219,7 @@ export default function EditLessonForm({
     <UiDialog open={isOpen} onOpenChange={(open) => {
       onOpenChange(open);
     }}>
-      <UiDialogContent className="sm:max-w-lg md:max-w-xl" dir="rtl">
+      <UiDialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[90vh] flex flex-col bg-card" dir="rtl">
         <UiDialogHeader className="text-right">
           <UiDialogTitle>تعديل الدرس: {lessonToEdit.title}</UiDialogTitle>
           <UiDialogDescription>
@@ -228,7 +227,7 @@ export default function EditLessonForm({
           </UiDialogDescription>
         </UiDialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2 flex-grow overflow-y-auto pr-2">
             <FormField
               control={form.control}
               name="title"
@@ -534,7 +533,7 @@ export default function EditLessonForm({
         </Form>
 
         {showEquationModal && (
-          <Dialog open={showEquationModal} onOpenChange={setShowEquationModal}> {/* Changed to UiDialog for consistency if preferred, or keep as Dialog if separate */}
+          <Dialog open={showEquationModal} onOpenChange={setShowEquationModal}>
             <DialogContent dir="rtl">
               <DialogHeader className="text-right">
                 <DialogTitle>إضافة معادلة LaTeX</DialogTitle>
@@ -574,4 +573,3 @@ export default function EditLessonForm({
     </UiDialog>
   );
 }
-
