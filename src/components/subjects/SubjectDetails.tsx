@@ -102,21 +102,17 @@ const LessonContentRenderer = ({ content }: { content: string | null | undefined
 export default function SubjectDetails({ subjectId, subjectName }: SubjectDetailsProps) {
   const [sections, setSections] = useState<SubjectSection[]>([]);
   const [lessonsBySection, setLessonsBySection] = useState<Record<string, Lesson[]>>({});
-  const [questionsByLesson, setQuestionsByLesson] = useState<Record<string, Question[]>>({});
   const [allExams, setAllExams] = useState<Exam[]>([]);
 
   const [isLoadingSections, setIsLoadingSections] = useState(true);
   const [isLoadingLessons, setIsLoadingLessons] = useState<Record<string, boolean>>({});
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState<Record<string, boolean>>({});
   const [isLoadingExams, setIsLoadingExams] = useState(true);
 
   const [lessonsDialogOpenForSectionId, setLessonsDialogOpenForSectionId] = useState<string | null>(null);
   const [showAddLessonForm, setShowAddLessonForm] = useState(false);
-  const [showAddSectionForm, setShowAddSectionForm] = useState(false); // New state for AddSectionForm
+  const [showAddSectionForm, setShowAddSectionForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const [activeLessonAccordion, setActiveLessonAccordion] = useState<string[]>([]);
 
   const [editingSection, setEditingSection] = useState<SubjectSection | null>(null);
   const [isSubmittingEditSection, setIsSubmittingEditSection] = useState(false);
@@ -124,6 +120,11 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
 
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [isEditLessonDialogOpen, setIsEditLessonDialogOpen] = useState(false);
+
+  const [managingQuestionsForLesson, setManagingQuestionsForLesson] = useState<Lesson | null>(null);
+  const [questionsInManageDialog, setQuestionsInManageDialog] = useState<Question[]>([]);
+  const [isLoadingQuestionsInManageDialog, setIsLoadingQuestionsInManageDialog] = useState(false);
+  const [showAddQuestionFormInManageDialog, setShowAddQuestionFormInManageDialog] = useState(false);
 
 
   const editSectionForm = useForm<EditSectionFormValues>({
@@ -150,7 +151,6 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
       setIsLoadingExams(false);
 
       setLessonsBySection({});
-      setQuestionsByLesson({});
       const initialLessonsLoading: Record<string, boolean> = {};
       fetchedSections.forEach(section => {
         if(section.id) initialLessonsLoading[section.id] = false;
@@ -173,26 +173,10 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
 
   const fetchLessonsForSection = async (sectionIdParam: string) => {
     setIsLoadingLessons(prev => ({ ...prev, [sectionIdParam]: true }));
-    setLessonsBySection(prev => ({ ...prev, [sectionIdParam]: [] }));
-
-    setQuestionsByLesson(prevQuestions => {
-        const newQuestionsState = {...prevQuestions};
-        (lessonsBySection[sectionIdParam] || []).forEach(lesson => {
-            if (lesson.id) delete newQuestionsState[lesson.id];
-        });
-        return newQuestionsState;
-    });
-
+    setLessonsBySection(prev => ({ ...prev, [sectionIdParam]: [] })); // Clear previous lessons for this section
     try {
       const fetchedLessons = await getLessonsInSection(subjectId, sectionIdParam);
       setLessonsBySection(prev => ({ ...prev, [sectionIdParam]: fetchedLessons }));
-
-      const initialQuestionsLoadingForSection: Record<string, boolean> = {};
-      fetchedLessons.forEach(lesson => {
-        if (lesson.id) initialQuestionsLoadingForSection[lesson.id] = false;
-      });
-      setIsLoadingQuestions(prev => ({...prev, ...initialQuestionsLoadingForSection}));
-
     } catch (err) {
       console.error(`Error fetching lessons for section ${sectionIdParam}:`, err);
       toast({ variant: "destructive", title: "خطأ", description: `فشل تحميل الدروس للقسم.` });
@@ -201,34 +185,45 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
     }
   };
 
-  const handleFetchQuestionsForLesson = async (lessonId: string) => {
-    if (!questionsByLesson[lessonId] || questionsByLesson[lessonId]?.length === 0) {
-        setIsLoadingQuestions(prev => ({...prev, [lessonId]: true}));
-        try {
-            const fetchedQuestions = await getQuestionsForLesson(lessonId);
-            setQuestionsByLesson(prev => ({...prev, [lessonId]: fetchedQuestions}));
-        } catch (err) {
-            console.error(`Error fetching questions for lesson ${lessonId}:`, err);
-            toast({ variant: "destructive", title: "خطأ", description: `فشل تحميل أسئلة الدرس.`});
-            setQuestionsByLesson(prev => ({...prev, [lessonId]: []}));
-        } finally {
-            setIsLoadingQuestions(prev => ({...prev, [lessonId]: false}));
-        }
-    }
-  }
-
-
-  const handleContentAddedOrDeleted = (type: 'section' | 'lesson' | 'question', sectionIdParam?: string, lessonIdParam?: string) => {
-    if (type === 'section') {
-        fetchSubjectContent();
-        setShowAddSectionForm(false); // Hide form after adding section
-    } else if (type === 'lesson' && sectionIdParam) {
-        fetchLessonsForSection(sectionIdParam);
-        setShowAddLessonForm(false); // Hide form after adding lesson
-    } else if (type === 'question' && lessonIdParam) {
-        handleFetchQuestionsForLesson(lessonIdParam);
+  const fetchQuestionsForManageDialog = async (lessonId: string) => {
+    setIsLoadingQuestionsInManageDialog(true);
+    setQuestionsInManageDialog([]);
+    try {
+      const fetchedQuestions = await getQuestionsForLesson(lessonId);
+      setQuestionsInManageDialog(fetchedQuestions);
+    } catch (err) {
+      console.error(`Error fetching questions for lesson ${lessonId} in manage dialog:`, err);
+      toast({ variant: "destructive", title: "خطأ", description: `فشل تحميل أسئلة الدرس.` });
+    } finally {
+      setIsLoadingQuestionsInManageDialog(false);
     }
   };
+
+  const handleOpenManageQuestionsDialog = (lesson: Lesson) => {
+    setManagingQuestionsForLesson(lesson);
+    setShowAddQuestionFormInManageDialog(false); // Reset form visibility
+    if (lesson.id) {
+      fetchQuestionsForManageDialog(lesson.id);
+    }
+  };
+
+  const handleContentAddedOrDeletedInSection = (type: 'section' | 'lesson', sectionIdParam?: string) => {
+    if (type === 'section') {
+        fetchSubjectContent();
+        setShowAddSectionForm(false);
+    } else if (type === 'lesson' && sectionIdParam) {
+        fetchLessonsForSection(sectionIdParam);
+        setShowAddLessonForm(false);
+    }
+  };
+
+  const handleQuestionAddedOrUnlinkedInDialog = () => {
+    if (managingQuestionsForLesson && managingQuestionsForLesson.id) {
+      fetchQuestionsForManageDialog(managingQuestionsForLesson.id);
+    }
+    setShowAddQuestionFormInManageDialog(false); // Hide form after adding
+  };
+
 
   const handleDeleteExistingLesson = async (sectionId: string, lessonId: string, lessonTitle: string) => {
     try {
@@ -236,11 +231,6 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
       toast({ title: "نجاح", description: `تم حذف الدرس "${lessonTitle}" بنجاح.` });
       const currentLessons = lessonsBySection[sectionId] || [];
       setLessonsBySection(prev => ({ ...prev, [sectionId]: currentLessons.filter(l => l.id !== lessonId) }));
-      setQuestionsByLesson(prev => {
-        const newState = {...prev};
-        delete newState[lessonId];
-        return newState;
-      });
     } catch (err) {
       console.error("Error deleting lesson:", err);
       toast({ variant: "destructive", title: "خطأ", description: "فشل حذف الدرس." });
@@ -254,18 +244,19 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
 
   const handleLessonUpdated = () => {
     if (editingLesson && editingLesson.sectionId) {
-        fetchLessonsForSection(editingLesson.sectionId);
+        fetchLessonsForSection(editingLesson.sectionId); // Refresh lessons in the main dialog
     }
     setIsEditLessonDialogOpen(false);
     setEditingLesson(null);
   };
 
 
-  const handleUnlinkQuestionAction = async (questionId: string, lessonId: string) => {
+  const handleUnlinkQuestionActionInDialog = async (questionId: string) => {
+    if (!managingQuestionsForLesson || !managingQuestionsForLesson.id) return;
     try {
       await unlinkQuestionFromLesson(questionId);
       toast({ title: "نجاح", description: "تم إلغاء ربط السؤال بالدرس."});
-      handleContentAddedOrDeleted('question', undefined, lessonId);
+      fetchQuestionsForManageDialog(managingQuestionsForLesson.id); // Refresh questions in the dialog
     } catch (error) {
       console.error("Error unlinking question:", error);
       toast({ variant: "destructive", title: "خطأ", description: "فشل إلغاء ربط السؤال." });
@@ -288,7 +279,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
       });
       toast({ title: "نجاح", description: `تم تحديث القسم "${values.title}" بنجاح.` });
       setEditingSection(null);
-      handleContentAddedOrDeleted('section');
+      handleContentAddedOrDeletedInSection('section');
     } catch (error) {
       console.error("Error updating section:", error);
       toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث القسم." });
@@ -366,7 +357,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
             <h3 className="text-lg font-semibold mb-3">إضافة قسم جديد للمادة</h3>
             <AddSectionForm
               subjectId={subjectId}
-              onSectionAdded={() => handleContentAddedOrDeleted('section')}
+              onSectionAdded={() => handleContentAddedOrDeletedInSection('section')}
             />
             <Button
               variant="ghost"
@@ -514,13 +505,13 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                        <UiDialog open={lessonsDialogOpenForSectionId === section.id} onOpenChange={(open) => {
                             if (open) {
                                 setLessonsDialogOpenForSectionId(section.id!);
-                                setShowAddLessonForm(false); // Ensure form is hidden when dialog opens/reopens
+                                setShowAddLessonForm(false); 
                                 if (!lessonsBySection[section.id!] || lessonsBySection[section.id!].length === 0) {
                                    fetchLessonsForSection(section.id!);
                                 }
                             } else {
                                 setLessonsDialogOpenForSectionId(null);
-                                setShowAddLessonForm(false); // Also hide if dialog is closed
+                                setShowAddLessonForm(false); 
                             }
                         }}>
                           <UiDialogTrigger asChild>
@@ -551,7 +542,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                             subjectId={subjectId}
                                             sectionId={section.id!}
                                             onLessonAdded={() => {
-                                                handleContentAddedOrDeleted('lesson', section.id!);
+                                                handleContentAddedOrDeletedInSection('lesson', section.id!);
                                             }}
                                         />
                                         <Button
@@ -574,18 +565,11 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                     <Accordion
                                         type="multiple"
                                         className="w-full space-y-2"
-                                        value={activeLessonAccordion}
-                                        onValueChange={setActiveLessonAccordion}
                                     >
                                     {(lessonsBySection[section.id!] || []).map(lesson => (
                                         <AccordionItem value={lesson.id!} key={lesson.id!} className="border rounded-md bg-background shadow-xs">
                                         <AccordionTrigger
                                             className="hover:no-underline py-2.5 px-3 text-md font-medium flex items-center justify-between w-full"
-                                            onClick={() => {
-                                                if (lesson.id && !activeLessonAccordion.includes(lesson.id)) {
-                                                    handleFetchQuestionsForLesson(lesson.id);
-                                                }
-                                            }}
                                         >
                                             <div className="flex items-center">
                                             {lesson.order !== undefined && lesson.order !== null && (
@@ -725,10 +709,12 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                                 </div>
                                             )}
 
-
-                                            <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-border/50">
+                                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3 pt-2 border-t border-border/50">
                                                 <Button variant="outline" size="sm" onClick={() => handleOpenEditLessonDialog(lesson)}>
                                                 <Edit className="h-3.5 w-3.5 mr-1 rtl:ml-1 rtl:mr-0" /> تعديل الدرس
+                                                </Button>
+                                                <Button variant="default" size="sm" onClick={() => handleOpenManageQuestionsDialog(lesson)}>
+                                                    <ListChecks className="h-3.5 w-3.5 mr-1 rtl:ml-1 rtl:mr-0" /> إدارة أسئلة الدرس
                                                 </Button>
                                                 <AlertDialog>
                                                     <AlertDialogTriggerComponent asChild>
@@ -755,57 +741,6 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                                     </AlertDialogContent>
                                                 </AlertDialog>
                                             </div>
-
-                                            <div className="mt-4 pt-3 border-t border-dashed">
-                                                <h4 className="font-semibold text-sm mb-2 text-foreground/80 flex items-center">
-                                                <ListChecks className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" />
-                                                أسئلة الدرس (من بنك الأسئلة):
-                                                </h4>
-                                                <AddLessonQuestionForm
-                                                subjectId={subjectId}
-                                                lessonId={lesson.id!}
-                                                onQuestionAdded={() => handleContentAddedOrDeleted('question', section.id!, lesson.id!)}
-                                                />
-                                                {isLoadingQuestions[lesson.id!] ? (
-                                                <div className="flex items-center justify-center py-2"><Loader2 className="h-4 w-4 animate-spin"/> <span className="text-xs ml-2 rtl:mr-2">جاري تحميل أسئلة الدرس...</span></div>
-                                                ) : questionsByLesson[lesson.id!] && questionsByLesson[lesson.id!]!.length > 0 ? (
-                                                <div className="mt-2 space-y-1">
-                                                    {questionsByLesson[lesson.id!]!.map((q, idx) => (
-                                                    <Card key={q.id!} className="p-2 bg-muted/40 shadow-xs">
-                                                        <p className="text-xs font-medium truncate">{idx + 1}. {q.questionText}</p>
-                                                        <p className="text-xs text-muted-foreground">المادة: {q.subject || 'غير محدد'} | الصعوبة: {q.difficulty || 'غير محدد'}</p>
-                                                        <div className="flex justify-end gap-1 mt-1">
-                                                            <Button variant="outline" size="xs" asChild>
-                                                            <Link href={`/dashboard/questions/edit/${q.id}`}>
-                                                                <Edit className="h-3 w-3 mr-1" /> تعديل
-                                                            </Link>
-                                                            </Button>
-                                                            <AlertDialog>
-                                                            <AlertDialogTriggerComponent asChild>
-                                                                <Button variant="destructive" size="xs">
-                                                                <Link2Off className="h-3 w-3 mr-1" />
-                                                                إلغاء الربط
-                                                                </Button>
-                                                            </AlertDialogTriggerComponent>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader className="text-right">
-                                                                <AlertDialogTitle>هل أنت متأكد من إلغاء ربط هذا السؤال؟</AlertDialogTitle>
-                                                                <AlertDialogDescription>لن يتم حذف السؤال من البنك الرئيسي، فقط سيتم إلغاء ربطه بهذا الدرس.</AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter className="flex-row-reverse">
-                                                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleUnlinkQuestionAction(q.id!, lesson.id!)} className="bg-destructive hover:bg-destructive/90">إلغاء الربط</AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        </div>
-                                                    </Card>
-                                                    ))}
-                                                </div>
-                                                ) : (
-                                                <p className="text-xs text-center text-muted-foreground py-2">لا توجد أسئلة مرتبطة بهذا الدرس حاليًا.</p>
-                                                )}
-                                            </div>
                                         </AccordionContent>
                                         </AccordionItem>
                                     ))}
@@ -823,7 +758,6 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                         </UiDialog>
                     </div>
                   </CardHeader>
-                  {/* The CardContent for lessons is now removed from here as it's in the dialog */}
                 </Card>
             ))}
           </div>
@@ -838,6 +772,90 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
             onOpenChange={setIsEditLessonDialogOpen}
             onLessonUpdated={handleLessonUpdated}
           />
+        )}
+
+        {managingQuestionsForLesson && managingQuestionsForLesson.id && (
+            <UiDialog open={!!managingQuestionsForLesson} onOpenChange={(open) => { if (!open) setManagingQuestionsForLesson(null); }}>
+                <UiDialogContent className="max-w-2xl md:max-w-3xl lg:max-w-4xl h-[90vh] flex flex-col bg-card p-4" dir="rtl">
+                    <UiDialogHeader className="text-right pt-2 pb-3 border-b">
+                        <UiDialogTitle>إدارة أسئلة الدرس: {managingQuestionsForLesson.title}</UiDialogTitle>
+                        <UiDialogDescription>عرض، إلغاء ربط، أو إضافة أسئلة جديدة لهذا الدرس.</UiDialogDescription>
+                    </UiDialogHeader>
+                    <ScrollArea className="flex-grow overflow-y-auto space-y-3 py-3">
+                        {!showAddQuestionFormInManageDialog && (
+                            <Button
+                                variant="outline"
+                                className="w-full mb-3"
+                                onClick={() => setShowAddQuestionFormInManageDialog(true)}
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
+                                إضافة سؤال جديد لهذا الدرس
+                            </Button>
+                        )}
+                        {showAddQuestionFormInManageDialog && (
+                            <div className="my-3">
+                                <AddLessonQuestionForm
+                                subjectId={subjectId}
+                                lessonId={managingQuestionsForLesson.id!}
+                                onQuestionAdded={handleQuestionAddedOrUnlinkedInDialog}
+                                />
+                                <Button
+                                    variant="ghost"
+                                    className="w-full mt-2 text-sm text-muted-foreground hover:text-destructive"
+                                    onClick={() => setShowAddQuestionFormInManageDialog(false)}
+                                >
+                                إلغاء إضافة السؤال
+                                </Button>
+                                <hr className="my-3"/>
+                            </div>
+                        )}
+
+                        {isLoadingQuestionsInManageDialog ? (
+                            <div className="flex items-center justify-center py-3"><Loader2 className="h-5 w-5 animate-spin text-primary" /> <p className="ml-2 rtl:mr-2 text-sm text-muted-foreground">جاري تحميل أسئلة الدرس...</p></div>
+                        ) : questionsInManageDialog.length > 0 ? (
+                            <div className="space-y-2">
+                                {questionsInManageDialog.map((q, idx) => (
+                                <Card key={q.id!} className="p-2.5 bg-muted/40 shadow-xs">
+                                    <p className="text-sm font-medium truncate">{idx + 1}. {q.questionText}</p>
+                                    <p className="text-xs text-muted-foreground">الصعوبة: {q.difficulty || 'غير محدد'}</p>
+                                    <div className="flex justify-end gap-1.5 mt-1.5">
+                                    <Button variant="outline" size="xs" asChild>
+                                        <Link href={`/dashboard/questions/edit/${q.id}`}>
+                                        <Edit className="h-3 w-3 mr-1" /> تعديل
+                                        </Link>
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTriggerComponent asChild>
+                                        <Button variant="destructive" size="xs">
+                                            <Link2Off className="h-3 w-3 mr-1" /> إلغاء الربط
+                                        </Button>
+                                        </AlertDialogTriggerComponent>
+                                        <AlertDialogContent>
+                                        <AlertDialogHeader className="text-right">
+                                            <AlertDialogTitle>هل أنت متأكد من إلغاء ربط هذا السؤال؟</AlertDialogTitle>
+                                            <AlertDialogDescription>لن يتم حذف السؤال من البنك الرئيسي، فقط سيتم إلغاء ربطه بهذا الدرس.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter className="flex-row-reverse">
+                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleUnlinkQuestionActionInDialog(q.id!)} className="bg-destructive hover:bg-destructive/90">إلغاء الربط</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    </div>
+                                </Card>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-center text-muted-foreground py-3">لا توجد أسئلة مرتبطة بهذا الدرس حاليًا.</p>
+                        )}
+                    </ScrollArea>
+                    <UiDialogFooter className="flex-shrink-0 pt-3 border-t flex-row-reverse">
+                        <UiDialogClose asChild>
+                            <Button type="button" variant="outline">إغلاق</Button>
+                        </UiDialogClose>
+                    </UiDialogFooter>
+                </UiDialogContent>
+            </UiDialog>
         )}
 
       </CardContent>
