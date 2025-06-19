@@ -799,9 +799,7 @@ export const addLesson = async (subjectId: string, sectionId: string, data: Omit
     is_locked: data.isLocked !== undefined ? data.isLocked : true,
     linked_exam_ids: data.linkedExamIds && data.linkedExamIds.length > 0 ? data.linkedExamIds : null,
     notes: data.notes || null,
-    interactive_app_html: data.interactiveAppHtml || null,
-    interactive_app_css: data.interactiveAppCss || null,
-    interactive_app_js: data.interactiveAppJs || null,
+    interactive_app_content: data.interactiveAppContent || null,
   };
 
   const { data: insertedData, error } = await supabase
@@ -848,9 +846,7 @@ export const getLessonsInSection = async (subjectId: string, sectionId: string):
     isLocked: lesson.is_locked,
     linkedExamIds: lesson.linked_exam_ids || [],
     notes: lesson.notes,
-    interactiveAppHtml: lesson.interactive_app_html,
-    interactiveAppCss: lesson.interactive_app_css,
-    interactiveAppJs: lesson.interactive_app_js,
+    interactiveAppContent: lesson.interactive_app_content,
     created_at: lesson.created_at,
     updated_at: lesson.updated_at,
   })) as Lesson[];
@@ -867,9 +863,7 @@ export const updateLesson = async (subjectId: string, sectionId: string, lessonI
   if (data.isLocked !== undefined) lessonDataToUpdate.is_locked = data.isLocked;
   if (data.hasOwnProperty('linkedExamIds')) lessonDataToUpdate.linked_exam_ids = data.linkedExamIds && data.linkedExamIds.length > 0 ? data.linkedExamIds : null;
   if (data.hasOwnProperty('notes')) lessonDataToUpdate.notes = data.notes;
-  if (data.hasOwnProperty('interactiveAppHtml')) lessonDataToUpdate.interactive_app_html = data.interactiveAppHtml;
-  if (data.hasOwnProperty('interactiveAppCss')) lessonDataToUpdate.interactive_app_css = data.interactiveAppCss;
-  if (data.hasOwnProperty('interactiveAppJs')) lessonDataToUpdate.interactive_app_js = data.interactiveAppJs;
+  if (data.hasOwnProperty('interactiveAppContent')) lessonDataToUpdate.interactive_app_content = data.interactiveAppContent;
 
   if (Object.keys(lessonDataToUpdate).length === 0) {
     console.warn(`updateLesson called with no data to update for lessonId: ${lessonId}`);

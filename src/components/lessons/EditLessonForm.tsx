@@ -1,3 +1,4 @@
+
 // src/components/lessons/EditLessonForm.tsx
 "use client";
 
@@ -8,7 +9,7 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Dialog as UiDialog, // Renamed Dialog to UiDialog
+  Dialog as UiDialog, 
   DialogContent as UiDialogContent,
   DialogHeader as UiDialogHeader,
   DialogTitle as UiDialogTitle,
@@ -17,17 +18,17 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardContent as UiCardContent } from '@/components/ui/card'; // Renamed CardContent
+import { Card, CardHeader, CardContent as UiCardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as UiFormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from '@/hooks/use-toast';
 import { updateLesson, getExams } from '@/lib/firestore';
-import { Loader2, Save, Trash2, PlusCircle, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy, Code2 } from 'lucide-react'; // Added Code2
+import { Loader2, Save, Trash2, PlusCircle, LinkIcon, Sigma, ListChecks, Eye, EyeOff, Lock, Unlock, Copy, Code2 } from 'lucide-react';
 import type { Lesson, LessonFile, LessonTeacher, Exam } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Used for LaTeX modal
+import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BlockMath } from 'react-katex';
 import { Switch } from "@/components/ui/switch";
 import { Badge } from '@/components/ui/badge';
@@ -53,10 +54,8 @@ const lessonFormSchema = z.object({
   order: z.coerce.number().int().min(0, "الترتيب يجب أن يكون رقمًا موجبًا أو صفرًا.").optional().nullable(),
   linkedExamIds: z.array(z.string()).optional().default([]),
   notes: z.string().optional().nullable(),
-  isLocked: z.boolean().optional(), // No default, will be set from lessonToEdit
-  interactiveAppHtml: z.string().optional().nullable(),
-  interactiveAppCss: z.string().optional().nullable(),
-  interactiveAppJs: z.string().optional().nullable(),
+  isLocked: z.boolean().optional(),
+  interactiveAppContent: z.string().optional().nullable(), // Consolidated field
 });
 type LessonFormValues = z.infer<typeof lessonFormSchema>;
 
@@ -102,10 +101,8 @@ export default function EditLessonForm({
         order: lessonToEdit.order ?? undefined,
         linkedExamIds: lessonToEdit.linkedExamIds || [],
         notes: lessonToEdit.notes || '',
-        isLocked: lessonToEdit.isLocked ?? true, // Default to locked if undefined
-        interactiveAppHtml: lessonToEdit.interactiveAppHtml || '',
-        interactiveAppCss: lessonToEdit.interactiveAppCss || '',
-        interactiveAppJs: lessonToEdit.interactiveAppJs || '',
+        isLocked: lessonToEdit.isLocked ?? true,
+        interactiveAppContent: lessonToEdit.interactiveAppContent || '',
       };
       form.reset(initialFormValues);
     }
@@ -198,10 +195,8 @@ export default function EditLessonForm({
         order: data.order ?? undefined,
         linkedExamIds: data.linkedExamIds || [],
         notes: data.notes || null,
-        isLocked: data.isLocked, // Pass the updated isLocked status
-        interactiveAppHtml: data.interactiveAppHtml || null,
-        interactiveAppCss: data.interactiveAppCss || null,
-        interactiveAppJs: data.interactiveAppJs || null,
+        isLocked: data.isLocked,
+        interactiveAppContent: data.interactiveAppContent || null,
       });
 
       toast({
@@ -409,38 +404,16 @@ export default function EditLessonForm({
             <Card className="p-4 border bg-muted/30">
                 <CardHeader className="p-0 pb-2">
                     <UiDialogTitle className="text-md flex items-center"><Code2 className="h-5 w-5 mr-2 rtl:ml-2 rtl:mr-0 text-primary"/> تطبيق تفاعلي (اختياري)</UiDialogTitle>
-                    <UiFormDescription>عدّل كود HTML, CSS, و JavaScript للتطبيق التفاعلي ضمن الدرس.</UiFormDescription>
+                    <UiFormDescription>عدّل كود HTML الكامل للتطبيق التفاعلي (بما في ذلك وسوم style و script إذا لزم الأمر) ضمن الدرس.</UiFormDescription>
                 </CardHeader>
                 <UiCardContent className="p-0 space-y-3">
                     <FormField
                     control={form.control}
-                    name="interactiveAppHtml"
+                    name="interactiveAppContent"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel className="text-sm">HTML</FormLabel>
-                        <FormControl><Textarea placeholder="<div>...</div>" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name="interactiveAppCss"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-sm">CSS</FormLabel>
-                        <FormControl><Textarea placeholder="body { background-color: #f0f0f0; }" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name="interactiveAppJs"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-sm">JavaScript</FormLabel>
-                        <FormControl><Textarea placeholder="console.log('Hello World!');" {...field} value={field.value ?? ''} rows={5} className="font-mono text-xs" /></FormControl>
+                        <FormLabel className="text-sm sr-only">محتوى التطبيق التفاعلي</FormLabel>
+                        <FormControl><Textarea placeholder="<style>...</style><div>...</div><script>...</script>" {...field} value={field.value ?? ''} rows={10} className="font-mono text-xs" /></FormControl>
                         <FormMessage />
                         </FormItem>
                     )}

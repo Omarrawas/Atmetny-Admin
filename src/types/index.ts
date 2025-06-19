@@ -207,9 +207,7 @@ export interface Lesson {
   isLocked?: boolean;
   linkedExamIds?: string[];
   notes?: string | null;
-  interactiveAppHtml?: string | null;
-  interactiveAppCss?: string | null;
-  interactiveAppJs?: string | null;
+  interactiveAppContent?: string | null; // Consolidated field
   created_at?: string;
   updated_at?: string;
   questions?: Question[];
