@@ -188,10 +188,10 @@ export default function DashboardPage() {
                   key={link.key}
                   asChild
                   variant="outline"
-                  className="w-full h-16 justify-start p-4 text-base hover:bg-accent/50 hover:shadow-sm transition-all"
+                  className="w-full h-16 justify-start p-4 text-base hover:bg-accent/50 hover:shadow-sm transition-all text-start whitespace-normal"
                 >
                   <Link href={link.href}>
-                    <link.icon className="mr-3 h-6 w-6 text-primary rtl:ml-3 rtl:mr-0" />
+                    <link.icon className="h-6 w-6 text-primary shrink-0" /> {/* Removed explicit margins, relying on Button's default gap */}
                     {link.label}
                   </Link>
                 </Button>
