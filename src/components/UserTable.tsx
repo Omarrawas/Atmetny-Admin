@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 // Removed: import { db } from "@/config/firebaseClient";
 // import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore"; // Firestore imports removed
-import { getUsers, updateUser } from "@/lib/firestore"; // These will throw errors until implemented for Supabase
+import { getUsers, updateUser } from '@/lib/firestore'; // These will throw errors until implemented for Supabase
 import type { UserProfile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -102,7 +102,7 @@ export default function UserTable() {
     return (
       <div className="flex justify-center items-center py-10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">جاري تحميل المستخدمين...</p>
+        <p className="ml-2 rtl:mr-2 text-muted-foreground">جاري تحميل المستخدمين...</p>
       </div>
     );
   }
@@ -110,12 +110,12 @@ export default function UserTable() {
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <div className="flex items-center space-x-3 mb-2 rtl:space-x-reverse">
+        <div className="flex items-center space-x-3 rtl:space-x-reverse mb-2">
             <Users className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-bold tracking-tight">إدارة المستخدمين</CardTitle>
         </div>
         <CardDescription className="text-lg text-muted-foreground">
-          عرض وإدارة أدوار المستخدمين داخل التطبيق. (المنطق الخلفي يحتاج لتحديث Supabase)
+          عرض وإدارة أدوار المستخدمين داخل التطبيق.
         </CardDescription>
       </CardHeader>
       <CardContent>
