@@ -109,7 +109,7 @@ export default function SubjectsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-1">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center">

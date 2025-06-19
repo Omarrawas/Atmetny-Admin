@@ -380,7 +380,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                           </Button>
                         </UiDialogTrigger>
                         {editingSection && editingSection.id === section.id && (
-                          <UiDialogContent className="sm:max-w-md bg-card" dir="rtl">
+                          <UiDialogContent className="sm:max-w-md bg-card p-4" dir="rtl">
                           <UiDialogHeader className="text-right">
                               <UiDialogTitle>تعديل القسم: {editingSection.title}</UiDialogTitle>
                               <UiDialogDescription>
@@ -446,7 +446,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                   </FormItem>
                                   )}
                               />
-                              <UiDialogFooter className="flex-row-reverse">
+                              <UiDialogFooter className="flex-row-reverse pt-2">
                                   <Button type="submit" disabled={isSubmittingEditSection}>
                                   {isSubmittingEditSection ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Save className="ml-2 h-4 w-4" />}
                                   حفظ التغييرات
@@ -500,7 +500,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                             </Button>
                           </UiDialogTrigger>
                           <UiDialogContent className="max-w-2xl md:max-w-3xl lg:max-w-4xl h-[90vh] flex flex-col bg-card" dir="rtl">
-                            <UiDialogHeader className="text-right pt-6 pb-4 px-6 border-b flex-shrink-0">
+                            <UiDialogHeader className="text-right pt-4 pb-3 px-4 border-b flex-shrink-0">
                               <UiDialogTitle>دروس القسم: {section.title}</UiDialogTitle>
                               <UiDialogDescription>إدارة الدروس والأسئلة المرتبطة بهذا القسم.</UiDialogDescription>
                             </UiDialogHeader>
@@ -759,7 +759,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                     <p className="text-sm text-center text-muted-foreground py-3">لا توجد دروس مضافة لهذا القسم.</p>
                                 )}
                             </ScrollArea>
-                            <UiDialogFooter className="flex-shrink-0 pt-4 px-6 pb-6 border-t flex-row-reverse">
+                            <UiDialogFooter className="flex-shrink-0 pt-4 px-4 pb-4 border-t flex-row-reverse">
                                 <UiDialogClose asChild>
                                     <Button type="button" variant="outline">إغلاق</Button>
                                 </UiDialogClose>
@@ -789,4 +789,5 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
     </Card>
   );
 }
+
 
