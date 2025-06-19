@@ -1,9 +1,9 @@
 // src/components/layout/app-sidebar.tsx
 "use client";
-import React, { useState, useEffect } from 'react'; // Added useState, useEffect
+import React, { useState, useEffect } from 'react'; 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import NextImage from 'next/image'; // Added NextImage
+import NextImage from 'next/image'; 
 import {
   Sidebar,
   SidebarHeader,
@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button'; 
-import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone, MessageSquare, Loader2 } from 'lucide-react'; // Added Loader2
+import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone, MessageSquare, Loader2 } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
-import { getAppSettings } from '@/lib/firestore'; // Added getAppSettings
-import type { AppSettings } from '@/types'; // Added AppSettings type
+import { getAppSettings } from '@/lib/firestore'; 
+import type { AppSettings } from '@/types'; 
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -50,7 +50,6 @@ export default function AppSidebar() {
         setAppSettings(settings);
       } catch (error) {
         console.error("Error fetching app settings for sidebar logo:", error);
-        // Optionally, set a default or show an error state for the logo
       } finally {
         setIsLoadingLogo(false);
       }
@@ -62,12 +61,12 @@ export default function AppSidebar() {
   const appName = appSettings?.appName || "Atmetny Admin";
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" side="left">
+    <Sidebar collapsible="icon" variant="sidebar" side="left"> {/* Defaulting to left, RTL text flow will adjust content within */}
       <SidebarHeader className="flex items-center justify-between p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <div 
             className={cn(
-              "relative flex items-center justify-center text-primary", // Added relative for NextImage fill
+              "relative flex items-center justify-center text-primary", 
               "h-8 w-8 transition-all group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7"
             )}
           >
@@ -105,7 +104,7 @@ export default function AppSidebar() {
                       pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')  ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
                     )}
                     isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
-                    tooltip={{ children: item.label, side: 'right', align: 'center' }}
+                    tooltip={{ children: item.label, side: 'left', align: 'center' }} // Changed side to 'left' for RTL
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
                     <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">{item.label}</span>
@@ -124,7 +123,7 @@ export default function AppSidebar() {
                 pathname === '/dashboard/settings' ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"
                 )}
                 isActive={pathname === '/dashboard/settings'}
-                tooltip={{ children: "Settings", side: 'right', align: 'center' }}
+                tooltip={{ children: "Settings", side: 'left', align: 'center' }} // Changed side to 'left' for RTL
             >
                 <Settings className="h-5 w-5 shrink-0" />
                 <span className="truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">Settings</span>
@@ -134,3 +133,4 @@ export default function AppSidebar() {
     </Sidebar>
   );
 }
+

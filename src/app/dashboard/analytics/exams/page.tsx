@@ -25,7 +25,7 @@ interface ExamAnalyticsSummary {
 export default function ExamAnalyticsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]); // This might not be directly used if student names are joined in getExamAttempts
+  const [users, setUsers] = useState<UserProfile[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -35,8 +35,8 @@ export default function ExamAnalyticsPage() {
       try {
         const [fetchedExams, fetchedAttempts, fetchedUsers] = await Promise.all([
           getExams(),
-          getExamAttempts(), // Fetch all attempts initially
-          getUsers(), // Keep for now, though user info might be joined in fetchedAttempts
+          getExamAttempts(), 
+          getUsers(), 
         ]);
         setExams(fetchedExams);
         setExamAttempts(fetchedAttempts);
@@ -63,12 +63,11 @@ export default function ExamAnalyticsPage() {
 
       if (numberOfAttempts > 0) {
         const totalPercentageSum = attemptsForThisExam.reduce((sum, attempt) => {
-          // Calculate percentage for this attempt using new fields
           if (attempt.totalQuestionsAttempted > 0 && typeof attempt.correctAnswersCount === 'number') {
             const percentage = (attempt.correctAnswersCount / attempt.totalQuestionsAttempted) * 100;
             return sum + percentage;
           }
-          return sum; // Skip invalid attempts for average calculation
+          return sum; 
         }, 0);
         
         const validAttemptsCount = attemptsForThisExam.filter(
@@ -94,7 +93,7 @@ export default function ExamAnalyticsPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-3 rtl:mr-3 text-lg text-muted-foreground">جاري تحميل تحليلات الامتحانات...</p>
+        <p className="ms-3 text-lg text-muted-foreground">جاري تحميل تحليلات الامتحانات...</p>
       </div>
     );
   }
@@ -103,7 +102,7 @@ export default function ExamAnalyticsPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex items-center space-x-3 rtl:space-x-reverse mb-2">
+          <div className="flex items-center space-x-3 mb-2">
             <BarChart3 className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-bold tracking-tight">تحليلات الامتحانات</CardTitle>
           </div>
@@ -136,7 +135,7 @@ export default function ExamAnalyticsPage() {
                     <TableHead>عنوان الامتحان</TableHead>
                     <TableHead className="text-center">عدد المحاولات</TableHead>
                     <TableHead className="text-center">متوسط ​​الدرجات (٪)</TableHead>
-                    <TableHead className="text-right">إجراءات</TableHead>
+                    <TableHead className="text-start">إجراءات</TableHead> {/* Changed text-right to text-start */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -157,9 +156,9 @@ export default function ExamAnalyticsPage() {
                           <Badge variant="outline">N/A</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-start"> {/* Changed text-right to text-start */}
                         <Button variant="outline" size="sm" disabled>
-                          <Edit className="mr-1 h-3 w-3 rtl:ml-1 rtl:mr-0" /> عرض التقرير التفصيلي
+                          <Edit className="me-1 h-3 w-3" /> عرض التقرير التفصيلي {/* Changed mr-1 to me-1 */}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -199,3 +198,4 @@ export default function ExamAnalyticsPage() {
     </div>
   );
 }
+

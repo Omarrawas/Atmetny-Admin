@@ -125,7 +125,7 @@ export default function EditAnnouncementPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-3 text-lg text-muted-foreground rtl:mr-3 rtl:ml-0">جاري تحميل الإعلان...</p>
+        <p className="me-3 text-lg text-muted-foreground">جاري تحميل الإعلان...</p>
       </div>
     );
   }
@@ -134,7 +134,7 @@ export default function EditAnnouncementPage() {
   return (
     <Card className="max-w-2xl mx-auto shadow-lg">
       <CardHeader>
-        <div className="flex items-center space-x-3 rtl:space-x-reverse">
+        <div className="flex items-center space-x-3">
           <Megaphone className="h-8 w-8 text-primary" />
           <CardTitle className="text-2xl font-bold">تعديل الإعلان</CardTitle>
         </div>
@@ -204,7 +204,7 @@ export default function EditAnnouncementPage() {
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
                   <div className="space-y-0.5">
                     <FormLabel className="flex items-center">
-                       {isActiveStatus ? <Eye className="mr-2 h-4 w-4 text-green-500 rtl:ml-2 rtl:mr-0"/> : <EyeOff className="mr-2 h-4 w-4 text-red-500 rtl:ml-2 rtl:mr-0"/>}
+                       {isActiveStatus ? <Eye className="me-2 h-4 w-4 text-green-500"/> : <EyeOff className="me-2 h-4 w-4 text-red-500"/>}
                        حالة الإعلان
                     </FormLabel>
                     <FormDescription>
@@ -228,7 +228,7 @@ export default function EditAnnouncementPage() {
                 إلغاء
               </Button>
               <Button type="submit" disabled={isLoading || isFetching}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin rtl:ml-2 rtl:mr-0" /> : <Save className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />}
+                {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Save className="me-2 h-4 w-4" />}
                 حفظ التغييرات
               </Button>
             </div>
@@ -238,3 +238,4 @@ export default function EditAnnouncementPage() {
     </Card>
   );
 }
+
