@@ -1,8 +1,9 @@
 // src/components/layout/app-sidebar.tsx
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Added useState, useEffect
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import NextImage from 'next/image'; // Added NextImage
 import {
   Sidebar,
   SidebarHeader,
@@ -14,9 +15,11 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone, MessageSquare } from 'lucide-react'; // Added MessageSquare
+import { Button } from '@/components/ui/button'; 
+import { Home, FileQuestion, ClipboardList, Newspaper, QrCode, Download, Upload, Settings, School, BookOpenCheck, Users2, LayoutList, Tags, BarChart3, Megaphone, MessageSquare, Loader2 } from 'lucide-react'; // Added Loader2
 import { cn } from '@/lib/utils';
+import { getAppSettings } from '@/lib/firestore'; // Added getAppSettings
+import type { AppSettings } from '@/types'; // Added AppSettings type
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -27,7 +30,7 @@ const navItems = [
   { href: '/dashboard/analytics/exams', label: 'Exam Analytics', icon: BarChart3 },
   { href: '/dashboard/news', label: 'News', icon: Newspaper },
   { href: '/dashboard/announcements', label: 'Announcements', icon: Megaphone },
-  { href: '/dashboard/community', label: 'Community', icon: MessageSquare }, // New Community link
+  { href: '/dashboard/community', label: 'Community', icon: MessageSquare },
   { href: '/dashboard/qr-codes', label: 'QR Codes', icon: QrCode },
   { href: '/dashboard/teachers', label: 'Teachers', icon: Users2 },
   { href: '/dashboard/export', label: 'Export Data', icon: Download },
@@ -36,14 +39,54 @@ const navItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [isLoadingLogo, setIsLoadingLogo] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoadingLogo(true);
+      try {
+        const settings = await getAppSettings();
+        setAppSettings(settings);
+      } catch (error) {
+        console.error("Error fetching app settings for sidebar logo:", error);
+        // Optionally, set a default or show an error state for the logo
+      } finally {
+        setIsLoadingLogo(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const appLogoUrl = appSettings?.appLogoUrl;
+  const appName = appSettings?.appName || "Atmetny Admin";
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" side="left">
       <SidebarHeader className="flex items-center justify-between p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <School className="h-8 w-8 text-primary transition-all group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" />
+          <div 
+            className={cn(
+              "relative flex items-center justify-center text-primary", // Added relative for NextImage fill
+              "h-8 w-8 transition-all group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7"
+            )}
+          >
+            {isLoadingLogo ? (
+              <Loader2 className="h-full w-full animate-spin" />
+            ) : appLogoUrl && appLogoUrl.trim() !== '' ? (
+              <NextImage 
+                src={appLogoUrl} 
+                alt={`${appName} Logo`} 
+                fill 
+                sizes="(max-width: 768px) 28px, 32px" 
+                className="object-contain" 
+              />
+            ) : (
+              <School className="h-full w-full" />
+            )}
+          </div>
           <span className="text-lg font-semibold text-foreground transition-all group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">
-            Atmetny Admin
+            {appName}
           </span>
         </Link>
         <div className="hidden md:block">
