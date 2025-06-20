@@ -1,4 +1,3 @@
-
 // src/components/layout/app-sidebar.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -77,7 +76,7 @@ export default function AppSidebar() {
     if (isTeacher) {
       return allNavItems.filter(item => !item.adminOnly && item.teacherAllowed);
     }
-    return [];
+    return []; // Default for non-admin/non-teacher (e.g., student, though they shouldn't reach dashboard)
   };
 
   const navItems = getVisibleNavItems();
@@ -106,7 +105,7 @@ export default function AppSidebar() {
               <School className="h-full w-full" />
             )}
           </div>
-          <span className="text-lg font-semibold text-foreground transition-all group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden">
+          <span className="text-lg font-semibold text-foreground transition-all group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:hidden flex-grow text-right">
             {appName}
           </span>
         </Link>
@@ -153,4 +152,7 @@ export default function AppSidebar() {
                 </SidebarMenuButton>
             </Link>
         )}
-      </Sidebar
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
