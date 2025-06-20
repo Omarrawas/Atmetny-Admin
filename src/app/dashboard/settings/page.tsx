@@ -21,6 +21,8 @@ import { useToast } from '@/hooks/use-toast';
 import { getAppSettings, updateAppSettings } from '@/lib/firestore';
 import type { AppSettings, SocialMediaLink, SocialPlatform } from '@/types';
 import { Loader2, Save, Settings, PlusCircle, Trash2 } from 'lucide-react';
+import UserTable from '@/components/UserTable'; // Import UserTable
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 const platformValues = [
   "Facebook", "whatsapp", "Instagram", "Telegram", "Twitter", 
@@ -324,6 +326,10 @@ export default function ApplicationSettingsPage() {
           </Form>
         </CardContent>
       </Card>
+      
+      <Separator className="my-8" />
+
+      <UserTable />
     </div>
   );
 }

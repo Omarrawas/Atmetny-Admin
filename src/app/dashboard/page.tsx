@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import UserTable from '@/components/UserTable';
+// UserTable import removed
 import { Separator } from '@/components/ui/separator';
 import {
   BookOpenCheck, // For Subjects
@@ -63,8 +63,8 @@ export default function DashboardPage() {
           getExams(),
           getNewsArticles(),
           getAccessCodes(),
-          getTeachers(),
-          getUsers(),
+          getTeachers(), // Assuming getTeachers is distinct from getUsers for specific teacher role logic
+          getUsers(),    // For total user count
         ]);
 
         setStats({
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                   className="w-full h-16 justify-start p-4 text-base hover:bg-accent/50 hover:shadow-sm transition-all text-start whitespace-normal"
                 >
                   <Link href={link.href}>
-                    <link.icon className="h-6 w-6 text-primary shrink-0" /> {/* Removed explicit margins, relying on Button's default gap */}
+                    <link.icon className="h-6 w-6 text-primary shrink-0" />
                     {link.label}
                   </Link>
                 </Button>
@@ -201,9 +201,7 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      <Separator className="my-8" />
-
-      <UserTable />
+      {/* UserTable and its Separator are removed from here */}
     </div>
   );
 }
