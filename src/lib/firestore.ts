@@ -137,7 +137,7 @@ export const getSubjects = async (userId?: string, userRole?: UserProfile['role'
       throw teacherSubjectsError;
     }
     const teacherSubjectIds = teacherSubjects.map(ts => ts.subject_id);
-    if (teacherSubjectIds.length === 0) return [];
+    if (teacherSubjectIds.length === 0) return []; // If teacher has no assigned subjects, return empty
     query = query.in('id', teacherSubjectIds);
   }
 
@@ -177,7 +177,7 @@ export const updateSubject = async (id: string, data: Partial<Omit<Subject, 'id'
     if (!teacherSubjects) {
       throw new Error("الأستاذ غير مصرح له بتحديث هذه المادة أو المادة غير موجودة للأستاذ.");
     }
-  } else if (userRole !== 'admin') {
+  } else if (userRole !== 'admin') { // Only allow admin if not a teacher checking their own subject
      throw new Error("المستخدم غير مصرح له بتحديث المواد.");
   }
 
@@ -393,7 +393,7 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       question_type: item.questiontype as QuestionType,
       question_text: String(item.questiontext),
       difficulty: item.difficulty as 'easy' | 'medium' | 'hard',
-      subject_id: String(item.subjectid),
+      subject_id: String(item.subjectid), // Assumed to be a valid UUID by this point
       lesson_id: item.lessonid ? String(item.lessonid) : null,
       tag_ids: item.tagids ? String(item.tagids).split(',').map((t: string) => t.trim()).filter(Boolean) : [],
       is_sane: item.issane !== undefined ? String(item.issane).toLowerCase() === 'true' : null,
@@ -418,8 +418,10 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
         let correctMcqIndex = -1;
         if (item.correctoptionindex) correctMcqIndex = parseInt(String(item.correctoptionindex), 10) - 1;
         else if (item.correctoptiontext) correctMcqIndex = options.findIndex(opt => opt.text.trim().toLowerCase() === String(item.correctoptiontext).trim().toLowerCase());
-        if (correctMcqIndex >= 0 && correctMcqIndex < options.length) dbData.correct_option_id = options[correctMcqIndex].id;
-        else {
+        
+        if (correctMcqIndex >= 0 && correctMcqIndex < options.length) {
+            dbData.correct_option_id = options[correctMcqIndex].id;
+        } else {
           console.warn(`[importQuestionsBatch] Skipping MCQ item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Could not determine correct option. Index: "${item.correctoptionindex}", Text: "${item.correctoptiontext}". Options: ${JSON.stringify(options)}. Item:`, item);
           skippedCount++; continue;
         }
@@ -427,8 +429,9 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       case 'true_false':
         dbData.options = [{ id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' }];
         const correctBoolAnswer = String(item.correctbooleananswer).toLowerCase();
-        if (correctBoolAnswer === 'true' || correctBoolAnswer === 'false') dbData.correct_option_id = correctBoolAnswer;
-        else {
+        if (correctBoolAnswer === 'true' || correctBoolAnswer === 'false') {
+            dbData.correct_option_id = correctBoolAnswer;
+        } else {
           console.warn(`[importQuestionsBatch] Skipping True/False item ${index + 1} (text: "${item.questiontext?.substring(0,30)}...") - Invalid correct answer: "${item.correctbooleananswer}". Expected 'true' or 'false'. Item:`, item);
           skippedCount++; continue;
         }
@@ -468,13 +471,14 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       console.warn(`[importQuestionsBatch] Mismatch in expected (${questionsToInsertToDb.length}) and actual inserted count (${insertedCount}). This might indicate partial success or issues with some rows due to database constraints not caught by pre-validation.`);
     }
     if (insertedCount === 0 && questionsToInsertToDb.length > 0) {
-      throw new Error("Supabase reported successful operation but inserted 0 questions. This indicates a potential issue with data constraints (e.g., foreign keys not matching, unique constraints violated for all rows) or Row Level Security policies preventing insertion. Please check your Supabase table logs and data validity.");
+        throw new Error("Supabase reported successful operation but inserted 0 questions. This indicates a potential issue with data constraints (e.g., foreign keys not matching, unique constraints violated for all rows) or Row Level Security policies preventing insertion. Please check your Supabase table logs and data validity.");
     }
     console.log(`[importQuestionsBatch] Successfully processed ${insertedCount} questions for insertion.`);
+
   } else {
     console.log("[importQuestionsBatch] No valid questions found in the import data to insert into Supabase.");
     if (rawImportData.length > 0 && skippedCount === rawImportData.length) {
-      throw new Error("All questions in the import file were skipped due to validation errors. Please check the console logs for details on each skipped item.");
+        throw new Error("All questions in the import file were skipped due to validation errors. Please check the console logs for details on each skipped item.");
     }
   }
 };
@@ -1461,6 +1465,8 @@ export const addAnnouncement = async (data: Omit<Announcement, 'id' | 'created_a
   if (!newAnnouncement || !newAnnouncement.id) {
     throw new Error("Failed to add announcement: No ID returned from database.");
   }
+  // Note: Actual user_notification creation for students is handled by a Supabase DB trigger
+  // (see notify_students_on_new_announcement SQL function and trigger).
   console.log(`[addAnnouncement] Announcement ${newAnnouncement.id} added. A DB trigger should now create user_notifications.`);
   return String(newAnnouncement.id);
 };
@@ -1691,4 +1697,4 @@ export const addUsersBatch = async (users: Partial<UserProfile>[]): Promise<void
         throw error;
     }
 };
-export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_
+export const addSubjectsBatch = async (subjectsData: Omit<Subject, 'id' | 'created_at' | 'updated_at' | 'sections'>[]): Promise<void> => { throw new Error(NOT_IMPLEMENTED_ERROR + ": addSubjectsBatch"); };
