@@ -6,7 +6,7 @@ import React, { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function ProtectedPage({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, loading, session } = useAuth(); // session might be useful for Supabase
+  const { user, isAdmin, isTeacher, loading, session } = useAuth(); // Now using isTeacher
   const router = useRouter();
 
   useEffect(() => {
@@ -14,18 +14,18 @@ export default function ProtectedPage({ children }: { children: React.ReactNode 
       if (!user) { // Or !session for Supabase if user object might be delayed
         console.log("[ProtectedPage] No user/session, redirecting to login.");
         router.replace('/login');
-      } else if (!isAdmin) {
-        console.error("[ProtectedPage] Access denied: User is not an admin. Redirecting to login with error.");
+      } else if (!isAdmin && !isTeacher) { // MODIFIED: Check for both admin and teacher
+        console.error("[ProtectedPage] Access denied: User is not an admin or a teacher. Redirecting to login with error.");
         router.replace('/login?error=unauthorized');
       } else {
-        console.log("[ProtectedPage] User is authenticated and admin. Access granted.");
+        console.log("[ProtectedPage] User is authenticated and has a valid role (admin or teacher). Access granted.");
       }
     } else {
       console.log("[ProtectedPage] Auth state is loading...");
     }
-  }, [user, isAdmin, loading, session, router]);
+  }, [user, isAdmin, isTeacher, loading, session, router]); // Added isTeacher to dependency array
 
-  if (loading || !user || !isAdmin) {
+  if (loading || !user || (!isAdmin && !isTeacher)) { // MODIFIED: Check for both admin and teacher
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
