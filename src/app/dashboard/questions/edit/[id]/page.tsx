@@ -21,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { getQuestionById, updateQuestion, getSubjects, getTags, addTag as createTagInDb } from '@/lib/firestore';
-import { uploadFile } from '@/lib/storage';
+import { uploadFile, deleteFileByUrl } from '@/lib/storage';
 import { useParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, SaveIcon, TagsIcon, Image as ImageIcon, Upload } from 'lucide-react';
@@ -368,6 +368,12 @@ export default function EditQuestionPage() {
     if (!questionIdFromParams || !initialQuestionData) return;
     setIsLoading(true);
     try {
+       // If the image URL has changed from the original and the original was not empty, delete the old file
+      if (initialQuestionData.imageUrl && data.imageUrl !== initialQuestionData.imageUrl) {
+        await deleteFileByUrl(initialQuestionData.imageUrl);
+        toast({ title: "تنظيف", description: "تم حذف الصورة القديمة من المخزن." });
+      }
+
       const selectedSubject = availableSubjects.find(s => s.id === data.subjectId);
       if (!selectedSubject) {
         toast({ variant: "destructive", title: "خطأ", description: "المادة المختارة غير موجودة." });
