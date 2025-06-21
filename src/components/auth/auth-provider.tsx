@@ -29,40 +29,6 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [session, setSession] = useState<any>(null);
 
-  useEffect(() => {
-    const getInitialSession = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      if (initialSession?.user) {
-        await fetchUserProfile(initialSession.user);
-      }
-      setLoading(false);
-    };
-
-    getInitialSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('[AuthProvider] Supabase onAuthStateChange triggered. Event:', _event);
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
-        setUserProfile(null);
-        setIsAdmin(false);
-        setIsTeacher(false);
-      }
-      if (_event !== 'INITIAL_SESSION') {
-         setLoading(false);
-      }
-    });
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, []);
-
   const fetchUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
       console.log(`[AuthProvider] Attempting to fetch profile for Supabase user ID: ${supabaseUser.id}`);
@@ -124,6 +90,29 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('[AuthProvider] Defaulted to non-admin/teacher due to profile processing error.');
     }
   };
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setSession(session);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser) {
+          await fetchUserProfile(currentUser);
+        } else {
+          setUserProfile(null);
+          setIsAdmin(false);
+          setIsTeacher(false);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, userProfile, isAdmin, isTeacher, loading, session }}>
