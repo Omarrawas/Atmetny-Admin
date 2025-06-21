@@ -128,7 +128,7 @@ export default function EditSubjectPage() {
 
     setIsUploading(true);
     try {
-      const publicUrl = await uploadFile(file, 'subject_images', 'subjects');
+      const publicUrl = await uploadFile(file, 'subjectimages', 'subjects');
       form.setValue('image', publicUrl, { shouldValidate: true, shouldDirty: true });
       toast({ title: "نجاح", description: "تم رفع الصورة الجديدة بنجاح." });
     } catch (error) {

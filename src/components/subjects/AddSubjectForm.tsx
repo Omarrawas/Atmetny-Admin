@@ -69,8 +69,8 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
 
     setIsUploading(true);
     try {
-      // Use the 'subject_images' bucket as defined in the policy
-      const publicUrl = await uploadFile(file, 'subject_images', 'subjects');
+      // Use the 'subjectimages' bucket as defined in the policy
+      const publicUrl = await uploadFile(file, 'subjectimages', 'subjects');
       form.setValue('image', publicUrl, { shouldValidate: true, shouldDirty: true });
       toast({ title: "نجاح", description: "تم رفع الصورة بنجاح." });
     } catch (error) {
