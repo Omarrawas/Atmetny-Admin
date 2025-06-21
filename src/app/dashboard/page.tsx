@@ -45,10 +45,15 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const { toast } = useToast();
-  const { isAdmin } = useAuth(); // Get admin status
+  const { isAdmin, user, userProfile, loading: authLoading } = useAuth();
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!user || !userProfile) {
+        setIsLoadingStats(false);
+        return;
+      }
+
       setIsLoadingStats(true);
       try {
         const [
@@ -60,13 +65,13 @@ export default function DashboardPage() {
           teachersData,
           usersData,
         ] = await Promise.all([
-          getSubjects(),
-          getQuestions(),
+          getSubjects(user.id, userProfile.role),
+          getQuestions(user.id, userProfile.role),
           getExams(),
           getNewsArticles(),
           getAccessCodes(),
-          getTeachers(), // Assuming getTeachers is distinct from getUsers for specific teacher role logic
-          getUsers(),    // For total user count
+          getTeachers(),
+          getUsers(),
         ]);
 
         setStats({
@@ -109,8 +114,10 @@ export default function DashboardPage() {
       }
     };
 
-    fetchStats();
-  }, [toast]);
+    if (!authLoading) {
+      fetchStats();
+    }
+  }, [toast, user, userProfile, authLoading]);
 
   const statItems = [
     { title: "إجمالي المواد", count: stats?.subjects, icon: BookOpenCheck, color: "text-blue-500", bgColor: "bg-blue-50" },
