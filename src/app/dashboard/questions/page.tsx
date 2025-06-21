@@ -62,6 +62,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import * as XLSX from 'xlsx';
 import { Timestamp } from 'firebase/firestore';
 import { DialogTrigger as UiDialogTrigger } from "@/components/ui/dialog"; 
+import { useAuth } from '@/hooks/use-auth';
 
 
 export default function QuestionsPage() {
@@ -89,16 +90,19 @@ export default function QuestionsPage() {
 
 
   const { toast } = useToast();
+  const { user, userProfile } = useAuth();
 
   const fetchPageData = useCallback(async () => {
+    if (!user || !userProfile) return;
+    
     setIsLoading(true);
     setIsLoadingTags(true);
     setIsLoadingSubjects(true);
     try {
       const [fetchedQuestions, fetchedTags, fetchedSubjects] = await Promise.all([
-        getQuestions(),
+        getQuestions(user.id, userProfile.role),
         getTags(),
-        getSubjects(),
+        getSubjects(user.id, userProfile.role),
       ]);
       setQuestions(fetchedQuestions);
       setAllTags(fetchedTags);
@@ -115,11 +119,13 @@ export default function QuestionsPage() {
       setIsLoadingTags(false);
       setIsLoadingSubjects(false);
     }
-  }, [toast]);
+  }, [toast, user, userProfile]);
 
   useEffect(() => {
-    fetchPageData();
-  }, [fetchPageData]);
+    if (user && userProfile) {
+      fetchPageData();
+    }
+  }, [fetchPageData, user, userProfile]);
 
   const tagsMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -370,8 +376,8 @@ export default function QuestionsPage() {
             flatQuestion['modelAnswer'] = q.modelAnswer;
           }
 
-          if (q.createdAt && (q.createdAt as any).toDate) flatQuestion['createdAt'] = (q.createdAt as Timestamp).toDate().toISOString();
-          if (q.updatedAt && (q.updatedAt as any).toDate) flatQuestion['updatedAt'] = (q.updatedAt as Timestamp).toDate().toISOString();
+          if (q.created_at && (q.created_at as any).toDate) flatQuestion['createdAt'] = (q.created_at as unknown as Timestamp).toDate().toISOString();
+          if (q.updated_at && (q.updated_at as any).toDate) flatQuestion['updatedAt'] = (q.updated_at as unknown as Timestamp).toDate().toISOString();
           return flatQuestion;
         });
 
@@ -988,4 +994,3 @@ export default function QuestionsPage() {
     </div>
   );
 }
-

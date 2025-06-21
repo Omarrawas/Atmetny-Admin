@@ -139,6 +139,10 @@ export const getSubjects = async (userId?: string, userRole?: UserProfile['role'
     const teacherSubjectIds = teacherSubjects.map(ts => ts.subject_id);
     if (teacherSubjectIds.length === 0) return []; // If teacher has no assigned subjects, return empty
     query = query.in('id', teacherSubjectIds);
+  } else if (userRole !== 'admin') {
+    // If not an admin and not a teacher, they might still need to see all subjects for other purposes.
+    // However, for dashboard context, this logic should be reviewed.
+    // For now, we assume public read or specific RLS will handle non-admin/teacher roles.
   }
 
   query = query.order('order', { ascending: true, nullsFirst: false })
@@ -283,10 +287,35 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
 };
 
 
-export const getQuestions = async (): Promise<Question[]> => {
-  const { data, error } = await supabase
-    .from('questions')
-    .select('*');
+export const getQuestions = async (userId?: string, userRole?: UserProfile['role']): Promise<Question[]> => {
+  let query = supabase.from('questions').select('*');
+
+  if (userRole === 'teacher' && userId) {
+    const { data: teacherSubjects, error: teacherSubjectsError } = await supabase
+      .from('teacher_subjects')
+      .select('subject_id')
+      .eq('teacher_id', userId);
+
+    if (teacherSubjectsError) {
+      console.error("Error fetching teacher's subjects links for questions:", teacherSubjectsError);
+      throw teacherSubjectsError;
+    }
+    
+    const teacherSubjectIds = teacherSubjects.map(ts => ts.subject_id);
+
+    if (teacherSubjectIds.length === 0) {
+      return [];
+    }
+
+    query = query.in('subject_id', teacherSubjectIds);
+  } else if (userRole !== 'admin') {
+    // For safety, only admins should be able to fetch all questions without filtering.
+    // Other roles (if any) should not see any questions by default in this generic getter.
+    // RLS policies should provide the ultimate security layer.
+    return [];
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Supabase error fetching questions:", error);
@@ -296,6 +325,7 @@ export const getQuestions = async (): Promise<Question[]> => {
 
   return data.map((q: any) => mapDbQuestionToQuestionType(q)).filter(q => q !== null) as Question[];
 };
+
 
 export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
   const dbData: any = {};
