@@ -65,6 +65,7 @@ export default function ApplicationSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
+  // CORRECT ORDER: Define `form` with useForm() BEFORE using it in other hooks.
   const form = useForm<AppSettingsFormValues>({
     resolver: zodResolver(appSettingsSchema),
     defaultValues: {
@@ -78,6 +79,7 @@ export default function ApplicationSettingsPage() {
     },
   });
 
+  // CORRECT ORDER: `useFieldArray` is now called AFTER `form` has been defined.
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "socialMediaLinks",
@@ -334,5 +336,3 @@ export default function ApplicationSettingsPage() {
     </div>
   );
 }
-
-    
