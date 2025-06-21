@@ -454,11 +454,11 @@ export default function QuestionsPage() {
 
                 return (
                   <AccordionItem value={subject.id!} key={subject.id}>
-                    <div className="flex items-center justify-between w-full py-3 px-4 hover:bg-muted/50 rounded-t-md">
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between w-full py-3 px-4 hover:bg-muted/50 rounded-t-md">
                       <AccordionTrigger className="flex-grow p-0 text-left hover:no-underline data-[state=closed]:hover:underline data-[state=open]:hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm [&>svg]:ml-2 rtl:[&>svg]:mr-2 rtl:[&>svg]:ml-0">
                         <span className="font-semibold">{subject.name} ({subject.branch})</span>
                       </AccordionTrigger>
-                      <div className="flex items-center gap-1 ml-3 rtl:mr-3 rtl:ml-0 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         <Badge variant="outline" className="px-1.5 py-0.5 text-xs whitespace-nowrap">{subjectQuestions.length} Questions</Badge>
                         <TooltipProvider>
                           <Tooltip>
@@ -694,11 +694,11 @@ export default function QuestionsPage() {
                 const uncategorizedSubjectPlaceholder: Subject = { id: 'uncategorized', name: 'Uncategorized Questions', branch: 'general' };
                 return (
                   <AccordionItem value={subjectId} key={subjectId}>
-                     <div className="flex items-center justify-between w-full py-3 px-4 hover:bg-muted/50 rounded-t-md">
+                     <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between w-full py-3 px-4 hover:bg-muted/50 rounded-t-md">
                         <AccordionTrigger className="flex-grow p-0 text-left hover:no-underline data-[state=closed]:hover:underline data-[state=open]:hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm [&>svg]:ml-2 rtl:[&>svg]:mr-2 rtl:[&>svg]:ml-0">
                           <span className="font-semibold">أسئلة غير مصنفة لمادة</span>
                         </AccordionTrigger>
-                        <div className="flex items-center gap-1 ml-3 rtl:mr-3 rtl:ml-0 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                             <Badge variant="outline" className="px-1.5 py-0.5 text-xs whitespace-nowrap">{subjectQuestions.length} Questions</Badge>
                             <TooltipProvider>
                                 <Tooltip>

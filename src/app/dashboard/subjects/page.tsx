@@ -131,14 +131,14 @@ export default function SubjectsPage() {
             <Accordion type="single" collapsible className="w-full" value={activeAccordionItem} onValueChange={setActiveAccordionItem}>
               {subjects.map((subject) => (
                 <AccordionItem value={subject.id!} key={subject.id!} className="border-b-0 mb-3 rounded-lg border bg-card overflow-hidden group">
-                  <div className="flex items-center w-full p-4 hover:bg-muted/50 transition-colors group-data-[state=open]:border-b">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full p-4 hover:bg-muted/50 transition-colors group-data-[state=open]:border-b">
                     <AccordionTrigger className="p-0 flex-1 flex justify-between text-right hover:no-underline">
                       <div className="flex items-center gap-3">
                         <h3 className="text-xl font-semibold">{subject.name}</h3>
                         <Badge variant="secondary">{branchTranslations[subject.branch] || subject.branch}</Badge>
                       </div>
                     </AccordionTrigger>
-                    <div className="flex items-center gap-2 pl-4 rtl:pr-4 rtl:pl-0 flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:pl-4 rtl:sm:pr-4 rtl:sm:pl-0 flex-shrink-0">
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/dashboard/subjects/edit/${subject.id}`}>
                           <Edit3 className="mr-1 h-3 w-3 rtl:ml-1 rtl:mr-0"/> تعديل

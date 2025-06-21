@@ -18,7 +18,7 @@ export default function DashboardLayout({
           <div className="flex flex-1 flex-col overflow-hidden">
             <AppHeader />
             <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
-              <div className="container mx-auto"> {/* Removed max-w-7xl */}
+              <div className="container mx-auto max-w-7xl">
                 {children}
               </div>
             </main>

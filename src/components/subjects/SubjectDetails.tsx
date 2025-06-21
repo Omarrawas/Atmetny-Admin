@@ -620,7 +620,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
                                                 <h5 className="font-semibold text-xs text-muted-foreground mb-1.5">مرفقات الدرس:</h5>
                                                 <ul className="space-y-1.5">
                                                     {lesson.files.map((file, i) => (
-                                                    <li key={i} className="flex items-start text-xs mb-2 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                                                    <li key={i} className="flex flex-col sm:flex-row sm:items-start gap-2 text-xs mb-2 p-2 rounded-md hover:bg-muted/50 transition-colors">
                                                         {(() => {
                                                             const lowerCaseType = file.type?.toLowerCase() || '';
                                                             const isImage = ['image', 'jpg', 'jpeg', 'png', 'gif', 'webp'].some(ext => lowerCaseType.includes(ext));
@@ -637,7 +637,7 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
 
                                                             if (isImage && file.url) {
                                                                 return (
-                                                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="block w-16 h-16 sm:w-20 sm:h-20 relative mr-2 rtl:ml-2 rtl:mr-0 flex-shrink-0 group border rounded-md overflow-hidden bg-muted">
+                                                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 sm:w-24 sm:h-24 relative mr-2 rtl:ml-2 rtl:mr-0 flex-shrink-0 group border rounded-md overflow-hidden bg-muted">
                                                                         {isAllowedHostForNextImage ? (
                                                                             <NextImage
                                                                                 src={file.url}
@@ -862,4 +862,3 @@ export default function SubjectDetails({ subjectId, subjectName }: SubjectDetail
     </Card>
   );
 }
-
