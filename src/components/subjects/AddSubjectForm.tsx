@@ -8,7 +8,6 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-// Removed Card imports as they are usually handled by the parent page now
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import {
   Select,
@@ -19,7 +18,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { addSubject } from '@/lib/firestore';
-import { Loader2, BookPlus } from 'lucide-react'; // Removed Info
+import { uploadFile } from '@/lib/storage'; // Import the uploadFile function
+import { Loader2, BookPlus, Upload } from 'lucide-react'; 
 import type { SubjectBranch } from '@/types';
 
 
@@ -47,6 +47,7 @@ const branchOptions: { label: string; value: SubjectBranch }[] = [
 
 export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SubjectFormValues>({
@@ -58,9 +59,28 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
       iconName: '',
       imageHint: '',
       image: '',
-      order: undefined, // Default to undefined so placeholder shows
+      order: undefined,
     },
   });
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // Use the 'subject_images' bucket as defined in the policy
+      const publicUrl = await uploadFile(file, 'subject_images', 'subjects');
+      form.setValue('image', publicUrl, { shouldValidate: true, shouldDirty: true });
+      toast({ title: "نجاح", description: "تم رفع الصورة بنجاح." });
+    } catch (error) {
+      console.error("Error uploading subject image:", error);
+      toast({ variant: "destructive", title: "خطأ في الرفع", description: "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى." });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
   const onSubmit = async (data: SubjectFormValues) => {
     setIsLoading(true);
@@ -68,12 +88,12 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
     try {
       const subjectId = await addSubject({
         name: data.name,
-        description: data.description || '', // Ensures empty string if undefined
+        description: data.description || '',
         branch: data.branch,
         image: data.image || null, 
         iconName: data.iconName || null,
         imageHint: data.imageHint || null,
-        order: data.order ?? undefined, // Pass undefined if null, so DB default can apply or it's omitted
+        order: data.order ?? undefined,
       });
       toast({
         title: "نجاح!",
@@ -84,26 +104,12 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
       if (onSubjectAdded) {
         onSubjectAdded(subjectId);
       }
-    } catch (error: any) { // Catch as 'any' to inspect properties
+    } catch (error: any) {
       let errorMessage = "فشلت إضافة المادة. يرجى المحاولة مرة أخرى.";
-      // Log more detailed error from Supabase if available
       if (error && typeof error === 'object') {
-        console.error("Error adding subject (details):", {
-          message: error.message,
-          details: error.details, // Supabase specific
-          hint: error.hint,       // Supabase specific
-          code: error.code,       // Supabase specific
-          stack: error.stack,
-          errorObject: error // Log the whole object for further inspection
-        });
-        // Construct a more informative message for the user if possible
-        if (error.message) {
-            errorMessage = `فشل إضافة المادة: ${error.message}`;
-            if (error.details) errorMessage += ` التفاصيل: ${error.details}`;
-            if (error.hint) errorMessage += ` تلميح: ${error.hint}`;
-        }
+        console.error("Error adding subject (details):", error);
+        if (error.message) errorMessage = `فشل إضافة المادة: ${error.message}`;
       } else {
-        // Log error if it's not an object (e.g., just a string)
         console.error("Error adding subject (unknown type):", error);
       }
       toast({
@@ -117,7 +123,6 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
   };
 
   return (
-    // Card wrapper is removed, assuming parent page will provide it
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
@@ -189,27 +194,43 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
             </FormItem>
           )}
         />
-          <FormField
-          control={form.control}
-          name="image"
-          render={({ field }) => ( 
-            <FormItem>
-              <FormLabel>رابط صورة المادة (اختياري)</FormLabel>
-              <FormControl>
-                <Input 
-                  type="url" 
-                  placeholder="https://example.com/image.png" 
-                  {...field} 
-                  value={field.value ?? ''}
+         <div className="space-y-2">
+            <FormField
+            control={form.control}
+            name="image"
+            render={({ field }) => ( 
+                <FormItem>
+                <FormLabel>رابط صورة المادة (اختياري)</FormLabel>
+                <FormControl>
+                    <Input 
+                    type="url" 
+                    placeholder="https://example.com/image.png" 
+                    {...field} 
+                    value={field.value ?? ''}
+                    />
+                </FormControl>
+                <FormDescription>
+                    أدخل رابط URL مباشر أو ارفع صورة باستخدام الزر أدناه.
+                </FormDescription>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <div className="relative">
+                <Button type="button" variant="outline" disabled={isUploading} onClick={() => document.getElementById('subject-image-upload-new')?.click()}>
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                    {isUploading ? 'جاري الرفع...' : 'رفع صورة للمادة'}
+                </Button>
+                <input
+                    type="file"
+                    id="subject-image-upload-new"
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/gif, image/webp"
+                    onChange={handleImageUpload}
+                    disabled={isUploading}
                 />
-              </FormControl>
-              <FormDescription>
-                أدخل رابط URL مباشر لصورة تمثل المادة.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+            </div>
+        </div>
         <FormField
           control={form.control}
           name="imageHint"
@@ -237,8 +258,8 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
                   type="number" 
                   placeholder="مثال: 1 (للأول)، 2 (للثاني)" 
                   {...field} 
-                  value={field.value === null || field.value === undefined ? '' : field.value} // Handle null/undefined for input display
-                  onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))} // Parse to int or set null
+                  value={field.value === null || field.value === undefined ? '' : field.value}
+                  onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
                   min="0"
                 />
               </FormControl>
@@ -249,7 +270,7 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isLoading} className="w-full">
+        <Button type="submit" disabled={isLoading || isUploading} className="w-full">
           {isLoading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -261,5 +282,3 @@ export default function AddSubjectForm({ onSubjectAdded }: AddSubjectFormProps) 
     </Form>
   );
 }
-
-    

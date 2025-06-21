@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { getSubjectById, updateSubject } from '@/lib/firestore';
-// Removed: import { uploadFile, deleteFileByUrl } from '@/lib/storage';
-import { Loader2, BookUser, Save, Trash2 } from 'lucide-react';
+import { uploadFile, deleteFileByUrl } from '@/lib/storage';
+import { Loader2, BookUser, Save, Trash2, Upload } from 'lucide-react';
 import type { Subject, SubjectBranch } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -42,19 +42,12 @@ const branchOptions: { label: string; value: SubjectBranch }[] = [
   { label: "أدبي", value: "literary" },
 ];
 
-// Helper function to check if a string is a valid absolute URL or data URI
 const isValidUrl = (urlString?: string | null): boolean => {
-  if (!urlString || urlString.trim() === '') {
-    return false;
-  }
+  if (!urlString || urlString.trim() === '') return false;
   try {
-    // Check if it's a data URI first, which is valid for NextImage
-    if (urlString.startsWith('data:image/')) {
-        return true;
-    }
-    // Otherwise, try to parse as a standard URL
-    const url = new URL(urlString);
-    return url.protocol === "http:" || url.protocol === "https:";
+    if (urlString.startsWith('data:image/')) return true;
+    new URL(urlString);
+    return true;
   } catch (e) {
     return false;
   }
@@ -64,7 +57,9 @@ const isValidUrl = (urlString?: string | null): boolean => {
 export default function EditSubjectPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null | undefined>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null | undefined>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -103,15 +98,16 @@ export default function EditSubjectPage() {
       try {
         const subjectData = await getSubjectById(subjectIdFromParams);
         if (subjectData) {
+          const imageUrl = subjectData.image || '';
           form.reset({
             name: subjectData.name,
             description: subjectData.description || '',
             branch: subjectData.branch,
             iconName: subjectData.iconName || '',
             imageHint: subjectData.imageHint || '',
-            image: subjectData.image || '', 
+            image: imageUrl, 
           });
-          // setCurrentImageUrl will be set by the watchedImage useEffect after form.reset
+          setOriginalImageUrl(imageUrl);
         } else {
           toast({ variant: "destructive", title: "خطأ", description: "المادة غير موجودة." });
           router.push('/dashboard/subjects');
@@ -126,9 +122,25 @@ export default function EditSubjectPage() {
     fetchSubjectData();
   }, [params, form, router, toast]);
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const publicUrl = await uploadFile(file, 'subject_images', 'subjects');
+      form.setValue('image', publicUrl, { shouldValidate: true, shouldDirty: true });
+      toast({ title: "نجاح", description: "تم رفع الصورة الجديدة بنجاح." });
+    } catch (error) {
+      console.error("Error uploading new subject image:", error);
+      toast({ variant: "destructive", title: "خطأ في الرفع", description: "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى." });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
   const handleRemoveCurrentImage = async () => {
-    setCurrentImageUrl(null);
     form.setValue('image', ''); 
     toast({ title: "تم", description: "تم مسح رابط الصورة. سيتم حفظ التغيير عند الضغط على 'حفظ التغييرات'." });
   };
@@ -140,6 +152,12 @@ export default function EditSubjectPage() {
     setIsLoading(true);
     
     try {
+       // If the image URL has changed from the original and the original was not empty, delete the old file
+      if (originalImageUrl && data.image !== originalImageUrl) {
+        await deleteFileByUrl(originalImageUrl);
+        toast({ title: "تنظيف", description: "تم حذف الصورة القديمة من المخزن." });
+      }
+
       await updateSubject(subjectIdFromParams, {
         name: data.name,
         description: data.description || '',
@@ -255,48 +273,58 @@ export default function EditSubjectPage() {
               )}
             />
 
-            <FormItem>
-              <FormLabel>صورة المادة الحالية (رابط URL)</FormLabel>
+             <FormItem>
+              <FormLabel>صورة المادة الحالية</FormLabel>
               {isValidUrl(currentImageUrl) ? (
-                <div className="mt-2 space-y-2">
+                <div className="mt-2">
                   <NextImage key={currentImageUrl || 'no-image-key'} src={currentImageUrl!} alt="الصورة الحالية للمادة" width={128} height={128} className="h-32 w-auto rounded-md object-cover border" data-ai-hint={form.getValues("imageHint") || "subject education"} />
-                  <Button type="button" variant="outline" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading}>
-                    <Trash2 className="mr-2 h-4 w-4" /> مسح رابط الصورة
-                  </Button>
                 </div>
-              ) : currentImageUrl && currentImageUrl.trim() !== '' ? (
-                 <div className="mt-2 space-y-2">
-                    <p className="text-sm text-destructive p-2 border border-destructive/50 rounded-md bg-destructive/10">
-                        رابط الصورة الحالي غير صالح للعرض: "{currentImageUrl}". يرجى إدخال رابط URL صحيح أو مسح الحقل.
-                    </p>
-                    <Button type="button" variant="outline" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading}>
-                        <Trash2 className="mr-2 h-4 w-4" /> مسح رابط الصورة
-                    </Button>
-                </div>
-              ) : <p className="text-sm text-muted-foreground mt-1">لا يوجد رابط صورة حالي.</p>}
+              ) : <p className="text-sm text-muted-foreground mt-1">لا يوجد صورة حالية.</p>}
             </FormItem>
 
-            <FormField
-              control={form.control}
-              name="image"
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>{isValidUrl(currentImageUrl) ? 'تغيير رابط صورة المادة' : 'إضافة رابط صورة للمادة'} (اختياري)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="url" 
-                      placeholder="https://example.com/image.png" 
-                      {...field} 
-                      value={field.value ?? ''}
+            <div className="space-y-2">
+                <FormField
+                control={form.control}
+                name="image"
+                render={({ field }) => ( 
+                    <FormItem>
+                    <FormLabel>{isValidUrl(currentImageUrl) ? 'تغيير صورة المادة' : 'إضافة صورة للمادة'}</FormLabel>
+                    <FormControl>
+                        <Input 
+                        type="url" 
+                        placeholder="https://example.com/image.png" 
+                        {...field} 
+                        value={field.value ?? ''}
+                        />
+                    </FormControl>
+                     <FormDescription>
+                        أدخل رابط URL مباشر أو ارفع صورة جديدة باستخدام الزر أدناه.
+                    </FormDescription>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <div className="relative flex gap-2">
+                    <Button type="button" variant="outline" disabled={isUploading} onClick={() => document.getElementById('subject-image-upload-edit')?.click()}>
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {isUploading ? 'جاري الرفع...' : 'رفع صورة جديدة'}
+                    </Button>
+                    {isValidUrl(currentImageUrl) && (
+                        <Button type="button" variant="destructive" size="sm" onClick={handleRemoveCurrentImage} disabled={isLoading || isUploading}>
+                            <Trash2 className="mr-2 h-4 w-4" /> مسح الصورة الحالية
+                        </Button>
+                    )}
+                    <input
+                        type="file"
+                        id="subject-image-upload-edit"
+                        className="hidden"
+                        accept="image/png, image/jpeg, image/gif, image/webp"
+                        onChange={handleImageUpload}
+                        disabled={isUploading}
                     />
-                  </FormControl>
-                  <FormDescription>
-                    أدخل رابط URL مباشر للصورة التي تود عرضها مع المادة.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </div>
+            </div>
+
             <FormField
               control={form.control}
               name="imageHint"
@@ -314,11 +342,11 @@ export default function EditSubjectPage() {
               )}
             />
             <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading || isUploading}>
                     إلغاء
                 </Button>
-                <Button type="submit" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" /> }
+                <Button type="submit" disabled={isLoading || isUploading}>
+                {isLoading || isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" /> }
                 حفظ التغييرات
                 </Button>
             </div>
