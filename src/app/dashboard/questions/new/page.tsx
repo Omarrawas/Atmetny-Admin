@@ -1,3 +1,4 @@
+
 // src/app/dashboard/questions/new/page.tsx
 "use client";
 
@@ -22,7 +23,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { addQuestion, getSubjects, getTags, addTag as createTagInDb, getSubjectSections, getLessonsInSection } from '@/lib/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book, Search } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book, Search, Image as ImageIcon } from 'lucide-react';
 import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, SubjectSection, Lesson, ArabicQuestionSanityCheckOutput } from '@/types';
 import { arabicQuestionSanityCheck } from '@/ai/flows/arabic-question-sanity-check';
 import { suggestQuestionTags } from '@/ai/flows/suggest-question-tags-flow';
@@ -43,6 +44,8 @@ const baseQuestionSchema = z.object({
   sectionId: z.string().optional().nullable(),
   lessonId: z.string().optional().nullable(),
   questionText: z.string().min(10, "نص السؤال يجب أن يكون 10 أحرف على الأقل."),
+  imageUrl: z.string().url({ message: "الرجاء إدخال رابط URL صحيح." }).optional().or(z.literal('')),
+  imageHint: z.string().max(50, "تلميح الصورة لا يمكن أن يتجاوز 50 حرفًا.").optional(),
   difficulty: z.enum(['easy', 'medium', 'hard'], { required_error: "الرجاء اختيار مستوى الصعوبة." }),
   tagIds: z.array(z.string()).optional().default([]),
 });
@@ -106,6 +109,8 @@ export default function NewQuestionPage() {
       sectionId: undefined,
       lessonId: undefined,
       questionText: '',
+      imageUrl: '',
+      imageHint: '',
       difficulty: undefined,
       tagIds: [],
       questionType: 'mcq',
@@ -367,7 +372,7 @@ export default function NewQuestionPage() {
         const optionsWithIds: Option[] = mcqData.options.map((opt, index) => ({ id: `option-${index + 1}-${Date.now()}`, text: opt.text }));
         const correctOptionId = optionsWithIds[parseInt(mcqData.correctOptionIndex)].id;
         questionPayload = {
-          questionType: 'mcq', questionText: data.questionText, options: optionsWithIds, correctOptionId: correctOptionId,
+          questionType: 'mcq', questionText: data.questionText, imageUrl: data.imageUrl || null, imageHint: data.imageHint || null, options: optionsWithIds, correctOptionId: correctOptionId,
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, 
           sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
@@ -376,7 +381,7 @@ export default function NewQuestionPage() {
       } else if (data.questionType === 'true_false') {
         const tfData = data as Extract<QuestionFormValues, { questionType: 'true_false' }>;
         questionPayload = {
-          questionType: 'true_false', questionText: data.questionText, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
+          questionType: 'true_false', questionText: data.questionText, imageUrl: data.imageUrl || null, imageHint: data.imageHint || null, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
           correctOptionId: tfData.correctBooleanAnswer, difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, 
           sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
@@ -385,7 +390,7 @@ export default function NewQuestionPage() {
       } else if (data.questionType === 'fill_in_the_blanks') {
         const fitbData = data as Extract<QuestionFormValues, { questionType: 'fill_in_the_blanks' }>;
         questionPayload = {
-          questionType: 'fill_in_the_blanks', questionText: data.questionText, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
+          questionType: 'fill_in_the_blanks', questionText: data.questionText, imageUrl: data.imageUrl || null, imageHint: data.imageHint || null, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, 
           sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
@@ -394,7 +399,7 @@ export default function NewQuestionPage() {
       } else { 
          const saData = data as Extract<QuestionFormValues, { questionType: 'short_answer' }>;
          questionPayload = {
-          questionType: 'short_answer', questionText: data.questionText, modelAnswer: saData.modelAnswer || undefined,
+          questionType: 'short_answer', questionText: data.questionText, imageUrl: data.imageUrl || null, imageHint: data.imageHint || null, modelAnswer: saData.modelAnswer || undefined,
           difficulty: data.difficulty, subjectId: selectedSubject.id, subject: selectedSubject.name,
           isSane: aiCheckResult ? aiCheckResult.isSane : null, 
           sanityExplanation: aiCheckResult ? aiCheckResult.explanation : null,
@@ -600,6 +605,42 @@ export default function NewQuestionPage() {
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <FormField
+                control={form.control}
+                name="imageUrl"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="flex items-center">
+                        <ImageIcon className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0"/>
+                        رابط صورة السؤال (اختياري)
+                    </FormLabel>
+                    <FormControl>
+                        <Input type="url" placeholder="https://example.com/question-image.png" {...field} value={field.value ?? ''}/>
+                    </FormControl>
+                    <FormDescription>
+                        أضف رابطًا لصورة إذا كان السؤال يتطلب ذلك (مثل مخطط أو رسم بياني).
+                    </FormDescription>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={form.control}
+                name="imageHint"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>تلميح الصورة (اختياري)</FormLabel>
+                    <FormControl>
+                        <Input placeholder="مثال: 'رسم بياني كيميائي' أو 'معادلة رياضية'" {...field} value={field.value ?? ''}/>
+                    </FormControl>
+                    <FormDescription>
+                        كلمة أو كلمتين لوصف الصورة. ستُستخدم كـ `data-ai-hint`.
+                    </FormDescription>
+                    <FormMessage />
+                </FormItem>
+                )}
             />
 
             <div className="space-x-2 rtl:space-x-reverse flex items-center">

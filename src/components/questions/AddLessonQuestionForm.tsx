@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { addQuestion, getSubjectById, getTags, addTag as createTagInDb } from '@/lib/firestore'; // Updated to use createTagInDb alias
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, TagsIcon, Search } from 'lucide-react'; // Added Search icon
+import { PlusCircle, Trash2, Loader2, TagsIcon, Search, Image as ImageIcon } from 'lucide-react'; // Added Search and ImageIcon icons
 import type { Option, Question, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, Tag } from '@/types';
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,6 +39,8 @@ const lessonCorrectAnswerSchema = z.object({
 // Base schema for common fields shared across all question types within a lesson context
 const lessonBaseQuestionSchema = z.object({
   questionText: z.string().min(10, "نص السؤال يجب أن يكون 10 أحرف على الأقل."),
+  imageUrl: z.string().url({ message: "الرجاء إدخال رابط URL صحيح." }).optional().or(z.literal('')),
+  imageHint: z.string().max(50, "تلميح الصورة لا يمكن أن يتجاوز 50 حرفًا.").optional(),
   difficulty: z.enum(['easy', 'medium', 'hard'], { required_error: "الرجاء اختيار مستوى الصعوبة." }),
   tagIds: z.array(z.string()).optional().default([]),
 });
@@ -102,6 +104,8 @@ export default function AddLessonQuestionForm({
     resolver: zodResolver(lessonQuestionSchema),
     defaultValues: {
       questionText: '',
+      imageUrl: '',
+      imageHint: '',
       difficulty: 'medium',
       questionType: 'mcq',
       tagIds: [],
@@ -253,28 +257,28 @@ export default function AddLessonQuestionForm({
         const optionsWithIds: Option[] = mcqData.options.map((opt, index) => ({ id: `option-${index + 1}-${Date.now()}`, text: opt.text }));
         const correctOptionId = optionsWithIds[parseInt(mcqData.correctOptionIndex)].id;
         questionPayload = {
-          questionType: 'mcq', questionText: mcqData.questionText, options: optionsWithIds, correctOptionId: correctOptionId,
+          questionType: 'mcq', questionText: mcqData.questionText, imageUrl: mcqData.imageUrl || null, imageHint: mcqData.imageHint || null, options: optionsWithIds, correctOptionId: correctOptionId,
           difficulty: mcqData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
           lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else if (formData.questionType === 'true_false') {
         const tfData = formData as Extract<LessonQuestionFormValues, { questionType: 'true_false' }>;
         questionPayload = {
-          questionType: 'true_false', questionText: tfData.questionText, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
+          questionType: 'true_false', questionText: tfData.questionText, imageUrl: tfData.imageUrl || null, imageHint: tfData.imageHint || null, options: [ { id: 'true', text: 'صحيح' }, { id: 'false', text: 'خطأ' } ],
           correctOptionId: tfData.correctBooleanAnswer, difficulty: tfData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
           lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else if (formData.questionType === 'fill_in_the_blanks') {
         const fitbData = formData as Extract<LessonQuestionFormValues, { questionType: 'fill_in_the_blanks' }>;
         questionPayload = {
-          questionType: 'fill_in_the_blanks', questionText: fitbData.questionText, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
+          questionType: 'fill_in_the_blanks', questionText: fitbData.questionText, imageUrl: fitbData.imageUrl || null, imageHint: fitbData.imageHint || null, correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
           difficulty: fitbData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
           lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
       } else if (formData.questionType === 'short_answer') {
         const saData = formData as Extract<LessonQuestionFormValues, { questionType: 'short_answer' }>;
         questionPayload = {
-          questionType: 'short_answer', questionText: saData.questionText, modelAnswer: saData.modelAnswer || undefined,
+          questionType: 'short_answer', questionText: saData.questionText, imageUrl: saData.imageUrl || null, imageHint: saData.imageHint || null, modelAnswer: saData.modelAnswer || undefined,
           difficulty: saData.difficulty, subjectId: subjectId, subject: subjectName || subjectId,
           lessonId: lessonId, isSane: null, sanityExplanation: null, tagIds: formData.tagIds || [],
         };
@@ -293,6 +297,8 @@ export default function AddLessonQuestionForm({
       });
       form.reset({
         questionText: '',
+        imageUrl: '',
+        imageHint: '',
         difficulty: 'medium',
         questionType: 'mcq',
         tagIds: [],
@@ -389,6 +395,20 @@ export default function AddLessonQuestionForm({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <FormField
+                control={form.control}
+                name="imageUrl"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="text-xs flex items-center"><ImageIcon className="h-3.5 w-3.5 mr-1"/> رابط صورة</FormLabel>
+                    <FormControl>
+                        <Input type="url" placeholder="https://..." {...field} value={field.value ?? ''} className="text-sm h-8"/>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
             />
             
             {watchedQuestionType === 'mcq' && (
@@ -682,4 +702,3 @@ export default function AddLessonQuestionForm({
     </Card>
   );
 }
-

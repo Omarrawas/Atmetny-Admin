@@ -33,6 +33,8 @@ const mapDbQuestionToQuestionType = (q: any): Question | null => {
     id: String(q.id),
     questionType: q.question_type as QuestionType,
     questionText: q.question_text,
+    imageUrl: q.image_url,
+    imageHint: q.image_hint,
     difficulty: q.difficulty as 'easy' | 'medium' | 'hard',
     subjectId: q.subject_id,
     subject: q.subject, // Assuming subject name is denormalized or joined
@@ -235,6 +237,8 @@ export const addQuestion = async (data: Omit<Question, 'id' | 'createdAt' | 'upd
   const dbData: any = {
     question_type: data.questionType,
     question_text: data.questionText,
+    image_url: data.imageUrl || null,
+    image_hint: data.imageHint || null,
     difficulty: data.difficulty,
     subject_id: (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null,
     lesson_id: (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null,
@@ -332,6 +336,8 @@ export const updateQuestion = async (id: string, data: Partial<Omit<Question, 'i
 
   if (data.questionType !== undefined) dbData.question_type = data.questionType;
   if (data.questionText !== undefined) dbData.question_text = data.questionText;
+  if (data.hasOwnProperty('imageUrl')) dbData.image_url = data.imageUrl;
+  if (data.hasOwnProperty('imageHint')) dbData.image_hint = data.imageHint;
   if (data.difficulty !== undefined) dbData.difficulty = data.difficulty;
   if (data.subjectId !== undefined) dbData.subject_id = (typeof data.subjectId === 'string' && data.subjectId.trim() !== '') ? data.subjectId : null;
   if (data.lessonId !== undefined) dbData.lesson_id = (typeof data.lessonId === 'string' && data.lessonId.trim() !== '') ? data.lessonId : null;
@@ -429,6 +435,8 @@ export const importQuestionsBatch = async (rawImportData: any[]): Promise<void> 
       is_sane: item.issane !== undefined ? String(item.issane).toLowerCase() === 'true' : null,
       sanity_explanation: item.sanityexplanation || null,
       is_locked: item.islocked !== undefined ? String(item.islocked).toLowerCase() === 'true' : true,
+      image_url: item.imageurl || null,
+      image_hint: item.imagehint || null,
     };
     console.log(`[importQuestionsBatch] Item ${index + 1} base dbData:`, dbData);
 

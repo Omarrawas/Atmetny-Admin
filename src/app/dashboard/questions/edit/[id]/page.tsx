@@ -1,3 +1,4 @@
+
 // src/app/dashboard/questions/edit/[id]/page.tsx
 "use client";
 
@@ -22,13 +23,14 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { getQuestionById, updateQuestion, getSubjects, getTags, addTag as createTagInDb } from '@/lib/firestore';
 import { useParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, SaveIcon, TagsIcon } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, SaveIcon, TagsIcon, Image as ImageIcon } from 'lucide-react';
 import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, ArabicQuestionSanityCheckOutput } from '@/types';
 import { arabicQuestionSanityCheck } from '@/ai/flows/arabic-question-sanity-check';
 import { suggestQuestionTags } from '@/ai/flows/suggest-question-tags-flow'; // Import the new flow
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import NextImage from 'next/image';
 
 const optionSchema = z.object({
   text: z.string().min(1, "Option text cannot be empty."),
@@ -42,6 +44,8 @@ const correctAnswerSchema = z.object({
 const baseQuestionSchema = z.object({
   subjectId: z.string({ required_error: "Please select a subject." }).min(1, "Subject cannot be empty."),
   questionText: z.string().min(10, "Question text must be at least 10 characters."),
+  imageUrl: z.string().url({ message: "الرجاء إدخال رابط URL صحيح." }).optional().or(z.literal('')),
+  imageHint: z.string().max(50, "تلميح الصورة لا يمكن أن يتجاوز 50 حرفًا.").optional(),
   difficulty: z.enum(['easy', 'medium', 'hard'], { required_error: "Please select a difficulty." }),
   tagIds: z.array(z.string()).optional().default([]),
 });
@@ -230,6 +234,8 @@ export default function EditQuestionPage() {
         const defaultValues: Partial<QuestionFormValues> = {
           subjectId: subjectIdToSet || undefined,
           questionText: fetchedQuestionData.questionText,
+          imageUrl: fetchedQuestionData.imageUrl || '',
+          imageHint: fetchedQuestionData.imageHint || '',
           difficulty: fetchedQuestionData.difficulty,
           tagIds: fetchedQuestionData.tagIds || [],
           questionType: fetchedQuestionData.questionType,
@@ -367,6 +373,8 @@ export default function EditQuestionPage() {
         updatedQuestionPayload = {
           questionType: 'mcq',
           questionText: mcqData.questionText,
+          imageUrl: mcqData.imageUrl || null,
+          imageHint: mcqData.imageHint || null,
           options: optionsWithIds,
           correctOptionId: correctOptionId,
           difficulty: mcqData.difficulty,
@@ -382,6 +390,8 @@ export default function EditQuestionPage() {
         updatedQuestionPayload = {
           questionType: 'true_false',
           questionText: tfData.questionText,
+          imageUrl: tfData.imageUrl || null,
+          imageHint: tfData.imageHint || null,
           options: [ 
             { id: 'true', text: 'صحيح' },
             { id: 'false', text: 'خطأ' },
@@ -400,6 +410,8 @@ export default function EditQuestionPage() {
         updatedQuestionPayload = {
           questionType: 'fill_in_the_blanks',
           questionText: fitbData.questionText,
+          imageUrl: fitbData.imageUrl || null,
+          imageHint: fitbData.imageHint || null,
           correctAnswers: fitbData.correctAnswers.map(ans => ans.text),
           difficulty: fitbData.difficulty,
           subjectId: selectedSubject.id,
@@ -414,6 +426,8 @@ export default function EditQuestionPage() {
         updatedQuestionPayload = {
           questionType: 'short_answer',
           questionText: saData.questionText,
+          imageUrl: saData.imageUrl || null,
+          imageHint: saData.imageHint || null,
           modelAnswer: saData.modelAnswer || undefined,
           difficulty: saData.difficulty,
           subjectId: selectedSubject.id,
@@ -543,6 +557,51 @@ export default function EditQuestionPage() {
                     />
                   </FormControl>
                   <FormDescription>هذا هو النص الأساسي للسؤال.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {form.getValues("imageUrl") && (
+              <FormItem>
+                  <FormLabel>الصورة الحالية للسؤال</FormLabel>
+                  <div className="mt-2 relative w-full h-48 rounded-md overflow-hidden border">
+                      <NextImage src={form.getValues("imageUrl")!} alt="صورة السؤال الحالية" layout="fill" objectFit="contain" />
+                  </div>
+              </FormItem>
+            )}
+
+            <FormField
+              control={form.control}
+              name="imageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center">
+                    <ImageIcon className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0"/>
+                    رابط صورة السؤال (اختياري)
+                  </FormLabel>
+                  <FormControl>
+                    <Input type="url" placeholder="https://example.com/question-image.png" {...field} value={field.value ?? ''}/>
+                  </FormControl>
+                  <FormDescription>
+                    أضف رابطًا لصورة إذا كان السؤال يتطلب ذلك (مثل مخطط أو رسم بياني).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imageHint"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>تلميح الصورة (اختياري)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="مثال: 'رسم بياني كيميائي' أو 'معادلة رياضية'" {...field} value={field.value ?? ''}/>
+                  </FormControl>
+                  <FormDescription>
+                    كلمة أو كلمتين لوصف الصورة. ستُستخدم كـ `data-ai-hint`.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit3, Trash2, RefreshCw, CheckCircle2, AlertTriangle, TagsIcon, Loader2, Save, Search, Download, Upload, Info, Sparkles } from 'lucide-react'; // Added Sparkles
+import { PlusCircle, Edit3, Trash2, RefreshCw, CheckCircle2, AlertTriangle, TagsIcon, Loader2, Save, Search, Download, Upload, Info, Sparkles, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
 import {
   Table,
   TableBody,
@@ -63,6 +63,7 @@ import * as XLSX from 'xlsx';
 import { Timestamp } from 'firebase/firestore';
 import { DialogTrigger as UiDialogTrigger } from "@/components/ui/dialog"; 
 import { useAuth } from '@/hooks/use-auth';
+import NextImage from 'next/image'; // Import NextImage
 
 
 export default function QuestionsPage() {
@@ -353,6 +354,8 @@ export default function QuestionsPage() {
         const processedDataForSheet = questionsToExport.map(q => {
           const flatQuestion: { [key: string]: any } = {
             questionText: q.questionText,
+            imageUrl: q.imageUrl,
+            imageHint: q.imageHint,
             difficulty: q.difficulty,
             subject: q.subject,
             subjectId: q.subjectId,
@@ -512,8 +515,25 @@ export default function QuestionsPage() {
                             <TableBody>
                               {subjectQuestions.map((question) => (
                                 <TableRow key={question.id}>
-                                  <TableCell className="font-medium max-w-xs truncate" title={question.questionText}>
-                                    {question.questionText}
+                                  <TableCell className="font-medium max-w-xs" title={question.questionText}>
+                                    <div className="flex items-center gap-2">
+                                      {question.imageUrl && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <ImageIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>هذا السؤال يحتوي على صورة.</p>
+                                              <div className="relative mt-2 h-24 w-auto max-w-xs rounded-md overflow-hidden">
+                                                <NextImage src={question.imageUrl} alt="Question Preview" layout="fill" objectFit="contain"/>
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                      <span className="truncate">{question.questionText}</span>
+                                    </div>
                                   </TableCell>
                                   <TableCell>
                                     <Badge variant={

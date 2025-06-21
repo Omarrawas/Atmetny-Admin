@@ -1,3 +1,4 @@
+
 // src/types/index.ts
 import type { Database as SupabaseDatabase } from './supabase'; // Import the generated Supabase types
 
@@ -70,6 +71,8 @@ export interface BaseQuestion {
   id?: string;
   questionType: QuestionType;
   questionText: string;
+  imageUrl?: string | null;
+  imageHint?: string | null;
   difficulty?: 'easy' | 'medium' | 'hard';
   subjectId?: string | null;
   subject?: string; // This might be denormalized or come from a join
@@ -345,3 +348,4 @@ export interface Announcement {
 
 // Re-export the Database interface from the Supabase generated types
 export type Database = SupabaseDatabase;
+
