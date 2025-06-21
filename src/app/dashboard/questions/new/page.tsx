@@ -21,9 +21,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { addQuestion, getSubjects, getTags, addTag as createTagInDb, getSubjectSections, getLessonsInSection } from '@/lib/firestore';
+import { uploadFile } from '@/lib/storage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book, Search, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Sparkles, AlertTriangle, CheckCircle2, BookCopy, TagsIcon, HelpCircle, BookText, Book, Search, Image as ImageIcon, Upload } from 'lucide-react';
 import type { Question, Option, Subject, Tag, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, SubjectSection, Lesson, ArabicQuestionSanityCheckOutput } from '@/types';
 import { arabicQuestionSanityCheck } from '@/ai/flows/arabic-question-sanity-check';
 import { suggestQuestionTags } from '@/ai/flows/suggest-question-tags-flow';
@@ -98,6 +99,7 @@ export default function NewQuestionPage() {
   const [newTagName, setNewTagName] = useState('');
   const [isAddingNewTag, setIsAddingNewTag] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
@@ -357,6 +359,23 @@ export default function NewQuestionPage() {
     );
   }, [availableTags, tagSearchTerm]);
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const publicUrl = await uploadFile(file, 'questionimages', 'questions');
+      form.setValue('imageUrl', publicUrl, { shouldValidate: true, shouldDirty: true });
+      toast({ title: "نجاح", description: "تم رفع صورة السؤال بنجاح." });
+    } catch (error) {
+      console.error("Error uploading question image:", error);
+      toast({ variant: "destructive", title: "خطأ في الرفع", description: "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى." });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onSubmit = async (data: QuestionFormValues) => {
     setIsLoading(true);
     try {
@@ -607,25 +626,47 @@ export default function NewQuestionPage() {
               )}
             />
 
-            <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="flex items-center">
-                        <ImageIcon className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0"/>
-                        رابط صورة السؤال (اختياري)
-                    </FormLabel>
-                    <FormControl>
-                        <Input type="url" placeholder="https://example.com/question-image.png" {...field} value={field.value ?? ''}/>
-                    </FormControl>
-                    <FormDescription>
-                        أضف رابطًا لصورة إذا كان السؤال يتطلب ذلك (مثل مخطط أو رسم بياني).
-                    </FormDescription>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
+            <div className="space-y-2">
+                <FormField
+                    control={form.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="flex items-center">
+                            <ImageIcon className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0"/>
+                            رابط صورة السؤال (اختياري)
+                        </FormLabel>
+                        <FormControl>
+                            <Input 
+                            type="url" 
+                            placeholder="https://example.com/question-image.png" 
+                            {...field} 
+                            value={field.value ?? ''}
+                            />
+                        </FormControl>
+                        <FormDescription>
+                            أدخل رابط URL مباشر أو ارفع صورة جديدة باستخدام الزر أدناه.
+                        </FormDescription>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <div className="relative flex gap-2">
+                    <Button type="button" variant="outline" disabled={isUploading || isLoading} onClick={() => document.getElementById('question-image-upload-new')?.click()}>
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {isUploading ? 'جاري الرفع...' : 'رفع صورة'}
+                    </Button>
+                    <input
+                        type="file"
+                        id="question-image-upload-new"
+                        className="hidden"
+                        accept="image/png, image/jpeg, image/gif, image/webp"
+                        onChange={handleImageUpload}
+                        disabled={isUploading || isLoading}
+                    />
+                </div>
+            </div>
+
             <FormField
                 control={form.control}
                 name="imageHint"
@@ -912,8 +953,8 @@ export default function NewQuestionPage() {
 
             <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>إلغاء</Button>
-                <Button type="submit" disabled={isLoading || isAiChecking || !allDataFetched || availableSubjects.length === 0 || isSuggestingTags || isAddingNewTag}>
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                <Button type="submit" disabled={isLoading || isAiChecking || !allDataFetched || availableSubjects.length === 0 || isSuggestingTags || isAddingNewTag || isUploading}>
+                  {isLoading || isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                   إضافة السؤال
                 </Button>
             </div>
@@ -923,4 +964,3 @@ export default function NewQuestionPage() {
     </Card>
   );
 }
-

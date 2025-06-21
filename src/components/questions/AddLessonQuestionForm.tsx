@@ -21,8 +21,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { addQuestion, getSubjectById, getTags, addTag as createTagInDb } from '@/lib/firestore'; // Updated to use createTagInDb alias
+import { uploadFile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, TagsIcon, Search, Image as ImageIcon } from 'lucide-react'; // Added Search and ImageIcon icons
+import { PlusCircle, Trash2, Loader2, TagsIcon, Search, Image as ImageIcon, Upload } from 'lucide-react'; // Added Search and ImageIcon icons
 import type { Option, Question, QuestionType, MCQQuestion, TrueFalseQuestion, FillInTheBlanksQuestion, ShortAnswerQuestion, Tag } from '@/types';
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -98,6 +99,7 @@ export default function AddLessonQuestionForm({
   const [newTagName, setNewTagName] = useState('');
   const [isAddingNewTag, setIsAddingNewTag] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<LessonQuestionFormValues>({
@@ -246,6 +248,23 @@ export default function AddLessonQuestionForm({
       tag.name.toLowerCase().includes(tagSearchTerm.toLowerCase())
     );
   }, [availableTags, tagSearchTerm]);
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const publicUrl = await uploadFile(file, 'questionimages', 'questions');
+      form.setValue('imageUrl', publicUrl, { shouldValidate: true, shouldDirty: true });
+      toast({ title: "نجاح", description: "تم رفع صورة السؤال بنجاح." });
+    } catch (error) {
+      console.error("Error uploading question image:", error);
+      toast({ variant: "destructive", title: "خطأ في الرفع", description: "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى." });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const onSubmit = async (formData: LessonQuestionFormValues) => {
     setIsLoading(true);
@@ -397,19 +416,35 @@ export default function AddLessonQuestionForm({
               )}
             />
 
-            <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="text-xs flex items-center"><ImageIcon className="h-3.5 w-3.5 mr-1"/> رابط صورة</FormLabel>
-                    <FormControl>
-                        <Input type="url" placeholder="https://..." {...field} value={field.value ?? ''} className="text-sm h-8"/>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
+            <div className="space-y-1">
+              <FormField
+                  control={form.control}
+                  name="imageUrl"
+                  render={({ field }) => (
+                  <FormItem>
+                      <FormLabel className="text-xs flex items-center"><ImageIcon className="h-3.5 w-3.5 mr-1"/> رابط صورة</FormLabel>
+                      <FormControl>
+                          <Input type="url" placeholder="https://..." {...field} value={field.value ?? ''} className="text-sm h-8"/>
+                      </FormControl>
+                      <FormMessage />
+                  </FormItem>
+                  )}
+              />
+              <div className="relative">
+                <Button type="button" variant="outline" size="xs" disabled={isUploading || isLoading} onClick={() => document.getElementById('lesson-question-image-upload')?.click()}>
+                    {isUploading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Upload className="mr-1 h-3 w-3" />}
+                    {isUploading ? 'جاري الرفع...' : 'رفع صورة'}
+                </Button>
+                <input
+                    type="file"
+                    id="lesson-question-image-upload"
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/gif, image/webp"
+                    onChange={handleImageUpload}
+                    disabled={isUploading || isLoading}
+                />
+              </div>
+            </div>
             
             {watchedQuestionType === 'mcq' && (
               <>
@@ -692,7 +727,7 @@ export default function AddLessonQuestionForm({
             <p className="text-xs text-muted-foreground">
               المادة: {subjectName || 'جاري التحميل...'} (سيتم ربط السؤال بهذه المادة والدرس الحالي).
             </p>
-            <Button type="submit" disabled={isLoading || isFetchingTags || isAddingNewTag} size="sm">
+            <Button type="submit" disabled={isLoading || isFetchingTags || isAddingNewTag || isUploading} size="sm">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
               إضافة السؤال للدرس
             </Button>
