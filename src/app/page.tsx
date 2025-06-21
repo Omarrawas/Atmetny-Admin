@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import React, { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic'; // Force dynamic rendering to prevent prerender errors
+
 export default function HomePage() {
   const { user, loading, isAdmin, isTeacher } = useAuth();
   const router = useRouter();

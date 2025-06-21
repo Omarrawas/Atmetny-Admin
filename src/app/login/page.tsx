@@ -16,6 +16,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { AlertCircle, Loader2, School } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+export const dynamic = 'force-dynamic'; // Force dynamic rendering to prevent prerender errors
+
 const loginSchema = z.object({
   email: z.string().email({ message: "البريد الإلكتروني الذي أدخلته غير صالح." }),
   password: z.string().min(6, { message: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل." }),
@@ -29,14 +31,6 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAdmin, loading: authLoading } = useAuth();
-
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
 
   useEffect(() => {
     const authError = searchParams.get('error');
