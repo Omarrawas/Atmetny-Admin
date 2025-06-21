@@ -29,6 +29,7 @@ import {
   getUsers,
 } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 interface Stats {
   subjects: number;
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const { toast } = useToast();
+  const { isAdmin } = useAuth(); // Get admin status
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -174,34 +176,37 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <Separator />
+          {/* Quick Links Section - Admin Only */}
+          {isAdmin && (
+            <>
+              <Separator />
 
-          {/* Quick Links Section */}
-          <section>
-            <div className="flex items-center mb-4 space-x-2 rtl:space-x-reverse">
-              <ArrowRightCircle className="h-6 w-6 text-primary" />
-              <h2 className="text-xl font-semibold text-foreground">روابط سريعة</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {quickLinks.map((link) => (
-                <Button
-                  key={link.key}
-                  asChild
-                  variant="outline"
-                  className="w-full h-16 justify-start p-4 text-base hover:bg-accent/50 hover:shadow-sm transition-all text-start whitespace-normal"
-                >
-                  <Link href={link.href}>
-                    <link.icon className="h-6 w-6 text-primary shrink-0" />
-                    {link.label}
-                  </Link>
-                </Button>
-              ))}
-            </div>
-          </section>
+              <section>
+                <div className="flex items-center mb-4 space-x-2 rtl:space-x-reverse">
+                  <ArrowRightCircle className="h-6 w-6 text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">روابط سريعة</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {quickLinks.map((link) => (
+                    <Button
+                      key={link.key}
+                      asChild
+                      variant="outline"
+                      className="w-full h-16 justify-start p-4 text-base hover:bg-accent/50 hover:shadow-sm transition-all text-start whitespace-normal"
+                    >
+                      <Link href={link.href}>
+                        <link.icon className="h-6 w-6 text-primary shrink-0" />
+                        {link.label}
+                      </Link>
+                    </Button>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
         </CardContent>
       </Card>
-
-      {/* UserTable and its Separator are removed from here */}
     </div>
   );
 }
