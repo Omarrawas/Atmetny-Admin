@@ -6,22 +6,22 @@ import React, { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isTeacher } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      if (user && isAdmin) {
+      if (user && (isAdmin || isTeacher)) {
         router.replace('/dashboard');
-      } else if (user && !isAdmin) {
-        // User is authenticated but not an admin
-        router.replace('/login?error=unauthorized'); // Or a dedicated unauthorized page
+      } else if (user && !isAdmin && !isTeacher) {
+        // User is authenticated but not an admin or teacher
+        router.replace('/login?error=unauthorized');
       }
       else {
         router.replace('/login');
       }
     }
-  }, [user, isAdmin, loading, router]);
+  }, [user, isAdmin, isTeacher, loading, router]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
