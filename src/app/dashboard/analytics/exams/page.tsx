@@ -5,8 +5,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart3, Loader2, Info, Edit, Activity } from 'lucide-react';
-import { getExams, getExamAttempts, getUsers } from '@/lib/firestore';
-import type { Exam, ExamAttempt, UserProfile } from '@/types';
+import { getExams, getExamAttempts } from '@/lib/firestore';
+import type { Exam, ExamAttempt } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ interface ExamAnalyticsSummary {
 export default function ExamAnalyticsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -33,14 +32,12 @@ export default function ExamAnalyticsPage() {
     const fetchAnalyticsData = async () => {
       setIsLoading(true);
       try {
-        const [fetchedExams, fetchedAttempts, fetchedUsers] = await Promise.all([
+        const [fetchedExams, fetchedAttempts] = await Promise.all([
           getExams(),
           getExamAttempts(), 
-          getUsers(), 
         ]);
         setExams(fetchedExams);
         setExamAttempts(fetchedAttempts);
-        setUsers(fetchedUsers);
       } catch (error) {
         console.error("Error fetching exam analytics data:", error);
         toast({
@@ -62,20 +59,11 @@ export default function ExamAnalyticsPage() {
       let averageScore: number | null = null;
 
       if (numberOfAttempts > 0) {
-        const totalPercentageSum = attemptsForThisExam.reduce((sum, attempt) => {
-          if (attempt.totalQuestionsAttempted > 0 && typeof attempt.correctAnswersCount === 'number') {
-            const percentage = (attempt.correctAnswersCount / attempt.totalQuestionsAttempted) * 100;
-            return sum + percentage;
-          }
-          return sum; 
-        }, 0);
+        const totalCorrectAnswers = attemptsForThisExam.reduce((sum, attempt) => sum + (attempt.correctAnswersCount || 0), 0);
+        const totalAttemptedQuestions = attemptsForThisExam.reduce((sum, attempt) => sum + (attempt.totalQuestionsAttempted || 0), 0);
         
-        const validAttemptsCount = attemptsForThisExam.filter(
-          attempt => attempt.totalQuestionsAttempted > 0 && typeof attempt.correctAnswersCount === 'number'
-        ).length;
-
-        if (validAttemptsCount > 0) {
-            averageScore = totalPercentageSum / validAttemptsCount;
+        if (totalAttemptedQuestions > 0) {
+            averageScore = (totalCorrectAnswers / totalAttemptedQuestions) * 100;
         }
       }
 
@@ -198,4 +186,3 @@ export default function ExamAnalyticsPage() {
     </div>
   );
 }
-
