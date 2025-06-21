@@ -1,7 +1,7 @@
 // src/app/dashboard/exams/edit/[id]/page.tsx
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, ClipboardEdit, AlertTriangle, BookCopy, TagsIcon, Search, Eye, EyeOff, Image as ImageIcon, User, Clock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import NextImage from 'next/image'; // For displaying the image
+import { useAuth } from '@/hooks/use-auth';
 
 const examSchema = z.object({
   title: z.string().min(3, "عنوان الامتحان يجب أن يكون 3 أحرف على الأقل."),
@@ -58,6 +59,7 @@ export default function EditExamPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
+  const { user, userProfile } = useAuth();
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examSchema),
@@ -83,66 +85,65 @@ export default function EditExamPage() {
     setCurrentExamImageUrl(watchedImage);
   }, [watchedImage]);
 
-  useEffect(() => {
+  const fetchPageData = useCallback(async () => {
+    if (!user || !userProfile) return;
     const examIdFromParams = params?.id as string;
-    if (!examIdFromParams) {
-      toast({ variant: "destructive", title: "خطأ", description: "معرّف الامتحان غير موجود." });
-      router.push('/dashboard/exams');
-      return;
-    }
+    if (!examIdFromParams) return;
+    
+    setIsFetchingInitialData(true);
+    setExamNotFound(false);
+    try {
+      const [examData, questions, subjects, tags] = await Promise.all([
+        getExamById(examIdFromParams),
+        getQuestions(user.id, userProfile.role),
+        getSubjects(user.id, userProfile.role),
+        getTags()
+      ]);
 
-    const fetchPageData = async () => {
-      setIsFetchingInitialData(true);
-      setExamNotFound(false);
-      try {
-        const [examData, questions, subjects, tags] = await Promise.all([
-          getExamById(examIdFromParams),
-          getQuestions(),
-          getSubjects(),
-          getTags()
-        ]);
-
-        if (!examData) {
-          setExamNotFound(true);
-          toast({ variant: "destructive", title: "خطأ", description: "الامتحان المطلوب غير موجود." });
-          return;
-        }
-        
-        const linkedQuestionIds = examData.questions?.map(qLink => qLink.question.id!).filter(id => id) || [];
-
-        form.reset({
-          title: examData.title,
-          description: examData.description || '',
-          subjectId: examData.subjectId,
-          selectedQuestionIds: linkedQuestionIds,
-          published: examData.published || false,
-          image: examData.image || '',
-          imageHint: examData.imageHint || '',
-          teacherName: examData.teacherName || '',
-          teacherId: examData.teacherId || '',
-          durationInMinutes: examData.durationInMinutes ?? null,
-        });
-        setCurrentExamImageUrl(examData.image);
-
-        setAvailableQuestions(questions);
-        setAvailableSubjects(subjects);
-        setRawAvailableTags(tags);
-
-      } catch (error) {
-        console.error("Error fetching data for edit exam page:", error);
-        toast({
-          variant: "destructive",
-          title: "خطأ في جلب البيانات",
-          description: "لم نتمكن من تحميل بيانات الامتحان أو البيانات الداعمة.",
-        });
-      } finally {
-        setIsFetchingInitialData(false);
+      if (!examData) {
+        setExamNotFound(true);
+        toast({ variant: "destructive", title: "خطأ", description: "الامتحان المطلوب غير موجود." });
+        return;
       }
-    };
-    if (params?.id) {
-        fetchPageData();
+      
+      const linkedQuestionIds = examData.questions?.map(qLink => qLink.question.id!).filter(id => id) || [];
+
+      form.reset({
+        title: examData.title,
+        description: examData.description || '',
+        subjectId: examData.subjectId,
+        selectedQuestionIds: linkedQuestionIds,
+        published: examData.published || false,
+        image: examData.image || '',
+        imageHint: examData.imageHint || '',
+        teacherName: examData.teacherName || '',
+        teacherId: examData.teacherId || '',
+        durationInMinutes: examData.durationInMinutes ?? null,
+      });
+      setCurrentExamImageUrl(examData.image);
+
+      setAvailableQuestions(questions);
+      setAvailableSubjects(subjects);
+      setRawAvailableTags(tags);
+
+    } catch (error) {
+      console.error("Error fetching data for edit exam page:", error);
+      toast({
+        variant: "destructive",
+        title: "خطأ في جلب البيانات",
+        description: "لم نتمكن من تحميل بيانات الامتحان أو البيانات الداعمة.",
+      });
+    } finally {
+      setIsFetchingInitialData(false);
     }
-  }, [params, form, router, toast]);
+  }, [params?.id, user, userProfile, form, toast]);
+
+
+  useEffect(() => {
+    if (params?.id && user && userProfile) {
+      fetchPageData();
+    }
+  }, [params?.id, user, userProfile, fetchPageData]);
 
   useEffect(() => {
     if (availableQuestions.length > 0 && rawAvailableTags.length > 0) {

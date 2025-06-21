@@ -1,7 +1,7 @@
 // src/app/dashboard/exams/new/page.tsx
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Loader2, ClipboardPlus, AlertTriangle, BookCopy, TagsIcon, Search, Eye, EyeOff, Image as ImageIcon, User, Clock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/hooks/use-auth';
 
 const examSchema = z.object({
   title: z.string().min(3, "عنوان الامتحان يجب أن يكون 3 أحرف على الأقل."),
@@ -56,6 +57,7 @@ export default function NewExamPage() {
 
   const router = useRouter();
   const { toast } = useToast();
+  const { user, userProfile } = useAuth();
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examSchema),
@@ -76,35 +78,38 @@ export default function NewExamPage() {
   const selectedQuestionIds = form.watch("selectedQuestionIds");
   const publishedStatus = form.watch("published");
 
+  const fetchInitialData = useCallback(async () => {
+    if (!user || !userProfile) return;
+    
+    setIsFetchingQuestions(true);
+    setIsFetchingSubjects(true);
+    setIsFetchingTags(true);
+    try {
+      const [questions, subjects, tags] = await Promise.all([
+        getQuestions(user.id, userProfile.role),
+        getSubjects(user.id, userProfile.role),
+        getTags()
+      ]);
+      setAvailableQuestions(questions);
+      setAvailableSubjects(subjects);
+      setRawAvailableTags(tags);
+    } catch (error) {
+      console.error("Error fetching initial data for exam:", error);
+      toast({
+        variant: "destructive",
+        title: "خطأ في جلب البيانات",
+        description: "لم نتمكن من تحميل قائمة الأسئلة أو المواد أو التصنيفات المتاحة.",
+      });
+    } finally {
+      setIsFetchingQuestions(false);
+      setIsFetchingSubjects(false);
+      setIsFetchingTags(false);
+    }
+  }, [toast, user, userProfile]);
+
   useEffect(() => {
-    const fetchInitialData = async () => {
-      setIsFetchingQuestions(true);
-      setIsFetchingSubjects(true);
-      setIsFetchingTags(true);
-      try {
-        const [questions, subjects, tags] = await Promise.all([
-          getQuestions(),
-          getSubjects(),
-          getTags()
-        ]);
-        setAvailableQuestions(questions);
-        setAvailableSubjects(subjects);
-        setRawAvailableTags(tags);
-      } catch (error) {
-        console.error("Error fetching initial data for exam:", error);
-        toast({
-          variant: "destructive",
-          title: "خطأ في جلب البيانات",
-          description: "لم نتمكن من تحميل قائمة الأسئلة أو المواد أو التصنيفات المتاحة.",
-        });
-      } finally {
-        setIsFetchingQuestions(false);
-        setIsFetchingSubjects(false);
-        setIsFetchingTags(false);
-      }
-    };
     fetchInitialData();
-  }, [toast]);
+  }, [fetchInitialData]);
 
   useEffect(() => {
     if (availableQuestions.length > 0 && rawAvailableTags.length > 0) {
