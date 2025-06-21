@@ -1,3 +1,4 @@
+
 // src/types/supabase.ts
 // IMPORTANT: This is a basic placeholder.
 // Generate this file properly using:
@@ -41,7 +42,6 @@ export interface Database {
           updated_at: string // timestamp with time zone not null default now()
           role: string | null // text null
           youtube_channel_url: string | null // text null
-          subjects_taught_id: string | null // uuid null
         }
         Insert: {
           id: string // uuid not null
@@ -63,7 +63,6 @@ export interface Database {
           updated_at?: string
           role?: string | null
           youtube_channel_url?: string | null
-          subjects_taught_id?: string | null
         }
         Update: {
           id?: string
@@ -85,7 +84,6 @@ export interface Database {
           updated_at?: string
           role?: string | null
           youtube_channel_url?: string | null
-          subjects_taught_id?: string | null
         }
         Relationships: [
           {

@@ -1,3 +1,4 @@
+
 // src/components/teachers/TeachersTable.tsx
 "use client";
 
