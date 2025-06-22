@@ -30,6 +30,14 @@ export default function LoginFormComponent() {
   const searchParams = useSearchParams();
   const { user, isAdmin, loading: authLoading } = useAuth();
 
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
   useEffect(() => {
     const authError = searchParams.get('error');
     if (authError === 'unauthorized') {
