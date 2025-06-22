@@ -38,12 +38,12 @@ export default function ExamAnalyticsPage() {
         ]);
         setExams(fetchedExams);
         setExamAttempts(fetchedAttempts);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching exam analytics data:", error);
         toast({
           variant: "destructive",
           title: "خطأ في جلب البيانات",
-          description: "لم نتمكن من تحميل بيانات تحليلات الامتحانات.",
+          description: `لم نتمكن من تحميل بيانات تحليلات الامتحانات. ${error?.message || ''}`,
         });
       } finally {
         setIsLoading(false);
@@ -116,7 +116,7 @@ export default function ExamAnalyticsPage() {
                 </AlertDescription>
             </Alert>
           ) : (
-            <div className="border rounded-md overflow-x-auto">
+            <div className="overflow-x-auto border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>

@@ -1383,6 +1383,12 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
   const { data, error } = await query.order('completed_at', { ascending: false });
 
   if (error) {
+    // If the table doesn't exist, Supabase throws a 'relation does not exist' error (code 42P01).
+    // In this case, we can gracefully return an empty array instead of crashing the analytics page.
+    if (error.code === '42P01') {
+      console.warn("Warning: The 'user_exam_attempts' table was not found. Returning empty array for exam attempts. This is expected if student attempt tracking is not yet implemented.");
+      return [];
+    }
     console.error("Supabase error fetching exam attempts:", error);
     throw error;
   }
