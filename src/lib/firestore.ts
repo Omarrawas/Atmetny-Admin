@@ -1361,7 +1361,6 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
   let query = supabase.from('user_exam_attempts').select(`
     id,
     user_id,
-    profiles ( name, email ),
     exam_id,
     exams ( title ),
     subject_id,
@@ -1383,10 +1382,10 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
   const { data, error } = await query.order('completed_at', { ascending: false });
 
   if (error) {
-    // If the table doesn't exist, Supabase throws a 'relation does not exist' error (code 42P01).
-    // In this case, we can gracefully return an empty array instead of crashing the analytics page.
-    if (error.code === '42P01') {
-      console.warn("Warning: The 'user_exam_attempts' table was not found. Returning empty array for exam attempts. This is expected if student attempt tracking is not yet implemented.");
+    // If the table doesn't exist or a relationship is missing, Supabase might throw an error.
+    // We check for common errors to provide a more graceful fallback.
+    if (error.code === '42P01' || error.message.includes("relationship")) {
+      console.warn(`Warning: Could not fetch exam attempts. Reason: ${error.message}. Returning empty array. This is expected if student attempt tracking is not yet implemented or if relationships are not set up.`);
       return [];
     }
     console.error("Supabase error fetching exam attempts:", error);
@@ -1397,7 +1396,6 @@ export const getExamAttempts = async (examId?: string): Promise<ExamAttempt[]> =
   return data.map((attempt: any) => ({
     id: String(attempt.id),
     userId: attempt.user_id,
-    user: attempt.profiles ? { name: attempt.profiles.name, email: attempt.profiles.email } : undefined,
     examId: attempt.exam_id,
     exam: attempt.exams ? { title: attempt.exams.title } : undefined,
     subjectId: attempt.subject_id,
