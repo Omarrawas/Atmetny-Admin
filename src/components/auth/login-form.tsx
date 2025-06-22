@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { AlertCircle, Loader2, School } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "البريد الإلكتروني الذي أدخلته غير صالح." }),
@@ -141,6 +142,15 @@ export default function LoginFormComponent() {
                   </FormItem>
                 )}
               />
+
+              <div className="flex items-center justify-end">
+                <Link href="#" // This can be changed to a real forgot password page later
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  هل نسيت كلمة المرور؟
+                </Link>
+              </div>
+
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
