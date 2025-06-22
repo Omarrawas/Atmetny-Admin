@@ -16,10 +16,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { AlertCircle, Loader2, School } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from 'next/link';
+import { Checkbox } from "@/components/ui/checkbox";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "البريد الإلكتروني الذي أدخلته غير صالح." }),
   password: z.string().min(6, { message: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل." }),
+  rememberMe: z.boolean().optional(),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -36,6 +38,7 @@ export default function LoginFormComponent() {
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     },
   });
 
@@ -143,9 +146,28 @@ export default function LoginFormComponent() {
                 )}
               />
 
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-between gap-4">
+                <FormField
+                    control={form.control}
+                    name="rememberMe"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-2 space-y-0 rtl:space-x-reverse">
+                        <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                        <div className="grid gap-1.5 leading-none">
+                        <FormLabel className="font-normal cursor-pointer">
+                            تذكرني
+                        </FormLabel>
+                        </div>
+                    </FormItem>
+                    )}
+                />
                 <Link href="#" // This can be changed to a real forgot password page later
-                  className="text-sm font-medium text-primary hover:underline"
+                  className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
                 >
                   هل نسيت كلمة المرور؟
                 </Link>
